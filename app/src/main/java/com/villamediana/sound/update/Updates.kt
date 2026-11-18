@@ -530,7 +530,7 @@ class Updates internal constructor(
 
     // ------------------------------------------------------------------ files
 
-    private fun apkFile(release: AppRelease): File = File(apkDir, "FreeSong-${release.version}.apk")
+    private fun apkFile(release: AppRelease): File = File(apkDir, "FreeVideo-${release.version}.apk")
 
     /** The APK of [release] already downloaded and intact (a second tap, or after a cancelled install). */
     private fun ready(release: AppRelease): File? {

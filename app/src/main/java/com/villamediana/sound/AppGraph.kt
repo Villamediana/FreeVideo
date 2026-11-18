@@ -381,6 +381,9 @@ class AppGraph(context: Context) {
     }
 
     /** The app updating itself from the GitHub releases (Ajustes › Sobre, the update sheet). */
+    /** FreeVideo: video library, feed, YouTube source and the player. */
+    val tube: com.villamediana.sound.tube.TubeGraph by lazy { com.villamediana.sound.tube.TubeGraph(appContext, http, scope) }
+
     val updates: com.villamediana.sound.update.Updates by lazy { com.villamediana.sound.update.createUpdates(appContext, http, scope) }
 
     /** The silent clip looping behind the cover of the full player. */

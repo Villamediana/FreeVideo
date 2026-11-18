@@ -23,7 +23,7 @@ data class AppRelease(
 /** GitHub's "latest release" answer → [AppRelease]. Drafts, pre-releases and releases without an APK give null. */
 object ReleaseFeed {
     /** The newest public release of the app (GitHub leaves drafts and pre-releases out of /latest). */
-    const val LATEST_URL = "https://api.github.com/repos/Villamediana/FreeSong/releases/latest"
+    const val LATEST_URL = "https://api.github.com/repos/Villamediana/FreeVideo/releases/latest"
 
     private val json = Json { ignoreUnknownKeys = true; isLenient = true }
 

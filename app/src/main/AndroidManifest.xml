@@ -3,19 +3,15 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
-    <!-- Reconhecer música pelo som (só a impressão digital sai do aparelho) -->
-    <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <!-- DNA musical: "Lembrar lugares" (off until the person turns it on). Never GPS. -->
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_BACKGROUND_LOCATION" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Tocar em segundo plano (desligado até a pessoa ligar nos Ajustes) -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Exigido pelo código de downloads herdado do FreeSong (WorkManager); o FreeVideo não baixa nada -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <!-- Instalar as próprias atualizações (APK das releases do GitHub, mesma assinatura) -->
+    <!-- Instalar as próprias atualizações (APK das releases do GitHub do FreeVideo, mesma assinatura) -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- O instalador do Android (a tela "Atualizar" → "Abrir" das atualizações) -->
@@ -50,6 +46,8 @@
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:exported="true"
             android:launchMode="singleTask"
+            android:supportsPictureInPicture="true"
+            android:resizeableActivity="true"
             android:theme="@style/Theme.Sound.Splash"
             android:windowSoftInputMode="adjustResize">
             <!-- configChanges: Compose acompanha giro, tamanho e modo sem recriar a activity (girar no vídeo não refaz a tela) -->
@@ -57,80 +55,39 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-            <!-- "Compartilhar" do app do YouTube / YouTube Music → abre a página de download no Sound -->
+            <!-- "Compartilhar" do app do YouTube → abre o vídeo no FreeVideo -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="text/plain" />
             </intent-filter>
+            <!-- Links do YouTube (vídeo, canal, playlist) podem abrir no FreeVideo -->
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" />
-                <data android:host="music.youtube.com" />
                 <data android:host="www.youtube.com" />
                 <data android:host="m.youtube.com" />
                 <data android:host="youtube.com" />
                 <data android:host="youtu.be" />
             </intent-filter>
-            <!-- Os links que o próprio FreeSong compartilha (música, vídeo, playlist, álbum): abrem direto
-                 no app. Verificados (o servidor responde /.well-known/assetlinks.json com a chave do app). -->
-            <intent-filter android:autoVerify="true">
-                <action android:name="android.intent.action.VIEW" />
-                <category android:name="android.intent.category.DEFAULT" />
-                <category android:name="android.intent.category.BROWSABLE" />
-                <data android:scheme="https" />
-                <data android:host="freesong.simplyonegoal.com" />
-                <data android:pathPrefix="/m/" />
-                <data android:pathPrefix="/v/" />
-                <data android:pathPrefix="/l/" />
-                <data android:pathPrefix="/a/" />
-            </intent-filter>
-            <!-- "Ok Google, tocar … no Sound" → toca da biblioteca (ou busca online se não houver nada) -->
-            <intent-filter>
-                <action android:name="android.media.action.MEDIA_PLAY_FROM_SEARCH" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MUSIC_PLAYER" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.APP_MUSIC" />
-                <category android:name="android.intent.category.DEFAULT" />
-            </intent-filter>
         </activity>
 
-        <!-- Reprodução: MediaLibraryService (notificação, tela de bloqueio, fone Bluetooth/AVRCP, carro) -->
+        <!-- Tocar em segundo plano (opcional, Ajustes): sessão de mídia do vídeo com controles na notificação -->
         <service
-            android:name=".playback.PlaybackService"
+            android:name=".tube.player.TubePlaybackService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>
-                <action android:name="androidx.media3.session.MediaLibraryService" />
                 <action android:name="androidx.media3.session.MediaSessionService" />
-                <action android:name="android.media.browse.MediaBrowserService" />
             </intent-filter>
         </service>
 
-        <!-- Downloads rodam no WorkManager como foreground dataSync -->
         <service
             android:name="androidx.work.impl.foreground.SystemForegroundService"
             android:foregroundServiceType="dataSync"
             tools:node="merge" />
-
-        <!-- Compartilhar o arquivo de áudio de uma música baixada -->
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
-        </provider>
 
         <!-- Atualização: resposta do PackageInstaller e aviso de "atualizado" na versão nova -->
         <receiver
@@ -144,8 +101,15 @@
             </intent-filter>
         </receiver>
 
-        <meta-data
-            android:name="com.google.android.gms.car.application"
-            android:resource="@xml/automotive_app_desc" />
+        <!-- Compartilhar arquivos do app -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 </manifest>

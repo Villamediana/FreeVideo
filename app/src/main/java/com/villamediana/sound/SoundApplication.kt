@@ -1,7 +1,5 @@
 package com.villamediana.sound
 
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import android.app.Application
 import coil3.ImageLoader
@@ -24,31 +22,9 @@ class SoundApplication : Application(), SingletonImageLoader.Factory {
         graph = AppGraph(this)
         instance = this
         Notifications.createChannels(this)
-        graph.downloads.kick()
-        // Read now, so Ajustes opens with everything in place (no filling in while it slides in).
-        graph.settingsNow
-        graph.libraryStats
-        // The listening history keeps a bit over a year (no table growing forever); the hours keep counting.
-        graph.scope.launch {
-            runCatching {
-                val removed = graph.library.pruneHistory()
-                if (removed > 0) graph.settings.addListenedBefore(removed)
-            }
-        }
-        // The karaoke left the app (1.32.1): what it downloaded and worked out goes too.
-        graph.scope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            runCatching { com.villamediana.sound.data.Leftovers.clear(filesDir, cacheDir) }
-        }
-        // "Downloads inteligentes" follows its switch (scheduled on, cancelled off).
-        graph.scope.launch {
-            graph.settings.settings.map { it.smartDownloads }.distinctUntilChanged().collect { on ->
-                runCatching { com.villamediana.sound.download.SmartDownloads.sync(this@SoundApplication, on) }
-            }
-        }
-        // Profile (made by itself), friends, shared songs and the jam; a check an hour with the app closed.
-        graph.social.start()
-        runCatching { com.villamediana.sound.social.SocialWorker.schedule(this) }
-        // New versions from GitHub: a check a day in the background (release builds only).
+        // FreeVideo: none of FreeSong's music work (downloads, profile/friends on the relay). The video
+        // library's housekeeping, and new versions from FreeVideo's own GitHub releases.
+        graph.scope.launch { runCatching { graph.tube.library.prune() } }
         if (graph.updates.enabled) runCatching { com.villamediana.sound.update.UpdateCheckWorker.schedule(this) }
         // Android 12–13: a version ready installs itself once the app leaves the screen (14+ waits by itself).
         runCatching { com.villamediana.sound.update.UpdateIdleWorker.watch(this, graph.updates) }

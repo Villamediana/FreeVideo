@@ -1,5 +1,63 @@
 <div align="center">
 
+# FreeVideo
+
+**Vídeos do YouTube no Android, sem conta, sem anúncio e com um feed que aprende no próprio celular.**
+
+Irmão do [FreeSong](https://github.com/Villamediana/FreeSong): mesmo visual, mesmo NewPipeExtractor, mesmo player.
+
+</div>
+
+---
+
+## O que ele faz
+
+- **Feed "Para você"** montado no celular a partir do que você assiste: quanto de cada vídeo você viu,
+  o que curtiu, salvou ou dispensou, suas buscas e inscrições. Mistura cinco fontes (o "a seguir" do
+  YouTube depois dos vídeos que mais te disseram algo, os novos das inscrições, os novos dos canais que
+  você vê muito, buscas pelos seus temas e o que está em alta), pontua e intercala canais. Cada vídeo
+  diz no menu ⋮ por que apareceu. Pura lógica em `tube/feed/FeedEngine.kt` (testada).
+- **Temas** no topo do Início (os seus e alguns fixos: Música, Games, Ao vivo…). Quem acabou de instalar
+  escolhe alguns em "Do que você gosta?".
+- **Assistir**: o player do FreeSong (toque duplo pula 10 s, segurar = 2×, deslizar pra cima = tela cheia,
+  pra baixo = minimizar), retoma de onde parou, próximo automático, mini player enquanto navega,
+  ao vivo (HLS) e, opcional, **tocar em segundo plano** com controles na notificação.
+- **Inscrições sem conta** (ficam no celular; os vídeos novos vêm do RSS dos canais) e importação do
+  Google Takeout (`subscriptions.csv`).
+- **Biblioteca**: histórico, Assistir mais tarde, Vídeos curtidos; busca com sugestões e links colados.
+
+Tudo o que você assiste fica só no celular (Room, `tube.db`). Nada de servidor próprio.
+
+## Código
+
+Clonado do FreeSong. O que é do FreeVideo:
+
+| Pasta | O quê |
+|---|---|
+| `tube/online/` | `TubeSource`: busca, detalhes, stream, comentários, canais, RSS, kiosks, links (NewPipeExtractor) |
+| `tube/data/` | `TubeDatabase`/`TubeLibrary` (histórico, inscrições, listas, dispensados, buscas, interesses), `TubeSettings` |
+| `tube/feed/` | `FeedEngine` (gosto + ranking, puro), `FeedLoader` (busca os candidatos), `FeedCache` |
+| `tube/player/` | `TubePlayer` (ExoPlayer único, histórico de tempo assistido, autoplay), `TubePlaybackService` |
+| `ui/tube/` | Telas: Início, Assistir, Busca, Canal, Playlist, Inscrições, Biblioteca, Ajustes |
+
+O resto (tema, componentes, controles de vídeo, camada de streaming em faixas de 2 MB) vem do FreeSong.
+As partes de música do FreeSong continuam no código mas não aparecem no app.
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-21-openjdk-amd64
+./gradlew :app:testDebugUnitTest --tests 'com.villamediana.sound.tube.*'          # feed
+SOUND_LIVE=1 ./gradlew :app:testDebugUnitTest --tests 'com.villamediana.sound.tube.*'  # + YouTube de verdade
+./gradlew :app:assembleRelease                                                       # APK
+```
+
+`tools/release.sh` está bloqueado: ele publicaria no repositório do FreeSong.
+
+---
+
+# FreeSong (README original)
+
+<div align="center">
+
 # FreeSong
 
 **Um player de música para Android sem conta, sem anúncio e sem assinatura.**

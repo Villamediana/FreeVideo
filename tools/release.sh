@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Publica uma versão do FreeSong no GitHub Releases. Os celulares com o FreeSong 1.13.0 ou mais
+# Publica uma versão do FreeVideo no GitHub Releases. Os celulares com o FreeVideo 1.1.0 ou mais
 # novo acham a versão sozinhos (ao abrir o app e numa checagem diária) e se atualizam com um toque.
 #
 #   tools/release.sh -n $'- Novidade um\n- Novidade dois'   # notas na linha de comando
@@ -14,8 +14,8 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-REPO=Villamediana/FreeSong
-PACKAGE=com.villamediana.sound
+REPO=Villamediana/FreeVideo
+PACKAGE=com.villamediana.video
 # SHA-256 do certificado da chave de release (~/keystores/sound-release.jks).
 CERT_SHA256=463fc12f58856f182397337e0fe868497c2bffb4fa145383bea7f8dacbb14644
 
@@ -48,8 +48,8 @@ name=$(sed -nE 's/^[[:space:]]*versionName = "([^"]+)".*/\1/p' app/build.gradle.
 code=$(sed -nE 's/^[[:space:]]*versionCode = ([0-9]+).*/\1/p' app/build.gradle.kts)
 [[ $name =~ ^[0-9]+(\.[0-9]+)+$ && -n $code ]] || die "versionName/versionCode não lidos de app/build.gradle.kts"
 tag="v$name"
-apk="dist/FreeSong-$name.apk"
-echo "release: FreeSong $name (build $code)"
+apk="dist/FreeVideo-$name.apk"
+echo "release: FreeVideo $name (build $code)"
 
 # 1. Git: nada solto e o commit já está na main do GitHub (a tag aponta pra ele).
 git diff --quiet && git diff --cached --quiet || die "há mudanças sem commit"
@@ -84,9 +84,9 @@ echo "release: $apk $size bytes sha256=$sha"
 
 # 5. Publicar.
 if [[ -n $notes_file ]]; then
-  "$GH" release create "$tag" "$apk" -R "$REPO" --target "$(git rev-parse HEAD)" --title "FreeSong $name" --notes-file "$notes_file"
+  "$GH" release create "$tag" "$apk" -R "$REPO" --target "$(git rev-parse HEAD)" --title "FreeVideo $name" --notes-file "$notes_file"
 else
-  "$GH" release create "$tag" "$apk" -R "$REPO" --target "$(git rev-parse HEAD)" --title "FreeSong $name" --notes "$notes"
+  "$GH" release create "$tag" "$apk" -R "$REPO" --target "$(git rev-parse HEAD)" --title "FreeVideo $name" --notes "$notes"
 fi
 
 # 6. O que os celulares vão ler: /releases/latest com esta tag, esta APK, este SHA-256.

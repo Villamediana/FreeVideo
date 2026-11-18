@@ -38,7 +38,7 @@ import java.util.concurrent.TimeUnit
 /** The app's [Updates], wired to Android (PackageInstaller, files, the release build's identity). */
 fun createUpdates(context: Context, http: OkHttpClient, scope: CoroutineScope): Updates {
     val app = context.applicationContext
-    val agent = "FreeSong/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
+    val agent = "FreeVideo/${BuildConfig.VERSION_NAME} (Android ${Build.VERSION.RELEASE})"
     return Updates(
         scope = scope,
         source = ReleaseSource(http, agent),
@@ -48,6 +48,7 @@ fun createUpdates(context: Context, http: OkHttpClient, scope: CoroutineScope): 
         apkDir = File(app.cacheDir, "update"),
         current = ApkInfo(app.packageName, BuildConfig.VERSION_CODE.toLong()),
         currentVersion = BuildConfig.VERSION_NAME,
+        // Off in debug builds: their package (".debug") is not the one the releases update.
         enabled = !BuildConfig.DEBUG,
         onFound = { UpdateAutoWorker.schedule(app) },
         onManual = { UpdateAutoWorker.cancel(app) },

@@ -30,14 +30,14 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.villamediana.sound"
+        applicationId = "com.villamediana.video"
         minSdk = 26
         targetSdk = 36
-        versionCode = 113
-        versionName = "1.34.0"
+        versionCode = 2
+        versionName = "1.1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        // The FreeSong relay (relay/): profiles, friends, shared songs and jams.
-        buildConfigField("String", "RELAY_URL", "\"https://freesong.simplyonegoal.com\"")
+        // FreeVideo has no relay: profiles, friends and jams stay off (the FreeSong relay is not shared).
+        buildConfigField("String", "RELAY_URL", "\"\"")
     }
 
     signingConfigs {
@@ -167,6 +167,8 @@ dependencies {
     implementation(libs.media3.session)
     implementation(libs.media3.common.ktx)
     implementation(libs.media3.ui.compose)
+    // Live streams arrive as HLS.
+    implementation(libs.media3.exoplayer.hls)
 
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)

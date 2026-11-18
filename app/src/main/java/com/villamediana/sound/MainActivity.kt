@@ -11,17 +11,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import android.view.animation.AccelerateInterpolator
 import android.view.animation.DecelerateInterpolator
-import androidx.lifecycle.lifecycleScope
 import com.villamediana.sound.ui.nav.ExternalRequest
 import com.villamediana.sound.ui.nav.Inbound
-import com.villamediana.sound.ui.nav.SoundRoot
-import com.villamediana.sound.ui.nav.VoiceSearch
 import com.villamediana.sound.ui.theme.SoundTheme
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
-    /** Shared links (YouTube / YouTube Music) and online voice searches waiting for the Search screen. */
+    /** YouTube links shared to FreeVideo or opened from the browser, waiting for the shell to open them. */
     private val incoming = MutableStateFlow<Inbound?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -50,8 +46,18 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settings by settingsStore.settings.collectAsState(initial = null)
             SoundTheme(mode = settings?.theme ?: initialTheme, accent = settings?.accent ?: initialSettings.accent) {
-                SoundRoot(incoming = incoming)
+                com.villamediana.sound.ui.tube.TubeRoot(incoming = incoming)
             }
+        }
+    }
+
+    /** Android 8–11: home pressed with a video playing → the floating window (12+ enters it by itself). */
+    override fun onUserLeaveHint() {
+        super.onUserLeaveHint()
+        if (android.os.Build.VERSION.SDK_INT in 26..30) {
+            val tube = SoundApplication.graph.tube
+            val enabled = kotlinx.coroutines.runBlocking { tube.settings.current().pictureInPicture }
+            com.villamediana.sound.ui.tube.Pip.enterIfWanted(this, tube.player.state.value, enabled)
         }
     }
 
@@ -61,29 +67,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun handle(intent: Intent?) {
-        // "Nova versão do FreeSong" notification: the update sheet.
+        // "Nova versão do FreeVideo" notification: the update sheet.
         if (intent?.getBooleanExtra(com.villamediana.sound.update.UpdateNotifier.EXTRA_OPEN, false) == true) {
             SoundApplication.graph.updates.openSheet()
             return
         }
-        // Social notifications: the friends page, a friend, or the jam invite.
-        intent?.getStringExtra(com.villamediana.sound.social.SocialNotifier.EXTRA_OPEN)?.let { open ->
-            com.villamediana.sound.ui.social.SocialRequests.open(open)
-            return
-        }
         when (val request = ExternalRequest.of(intent)) {
             is ExternalRequest.OpenLink -> incoming.value = Inbound.Link(request.text)
-            is ExternalRequest.PlayFromSearch -> playFromSearch(request.query)
+            is ExternalRequest.PlayFromSearch -> if (request.query.isNotBlank()) incoming.value = Inbound.Query(request.query)
             null -> Unit
-        }
-    }
-
-    /** Voice search: the library plays it where the app is; with nothing there, Search looks online. */
-    private fun playFromSearch(query: String) {
-        val graph = SoundApplication.graph
-        lifecycleScope.launch {
-            val played = VoiceSearch.play(query, graph.library, graph.player) { q -> getString(R.string.playback_source_search, q) }
-            if (!played) incoming.value = Inbound.Query(query)
         }
     }
 }

@@ -15,5 +15,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "Sound"
+rootProject.name = "FreeVideo"
 include(":app")

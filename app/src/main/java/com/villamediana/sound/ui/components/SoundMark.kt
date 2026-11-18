@@ -49,17 +49,17 @@ fun SoundBars(modifier: Modifier = Modifier, color: Color = SoundColors.Mint) {
     }
 }
 
-/** The app mark: the FreeSong icon (headphones with wings on graphite). */
+/** The app mark: the FreeVideo icon (a play button with wings on graphite). */
 @Composable
 fun SoundMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
     Image(
-        painterResource(R.drawable.freesong_mark),
+        painterResource(R.drawable.freevideo_mark),
         contentDescription = null,
         modifier = modifier.size(size).clip(RoundedCornerShape(size * 0.23f)),
     )
 }
 
-/** Mark + "FreeSong" wordmark (the main header). */
+/** Mark + "FreeVideo" wordmark (the main header). */
 @Composable
 fun SoundWordmark(modifier: Modifier = Modifier, markSize: Dp = 34.dp) {
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {

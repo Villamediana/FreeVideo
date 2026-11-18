@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Abas e cabeçalho -->
+    <string name="tube_tab_home">Início</string>
+    <string name="tube_tab_subs">Inscrições</string>
+    <string name="tube_tab_library">Biblioteca</string>
+    <string name="tube_search">Buscar</string>
+    <string name="tube_settings">Ajustes</string>
+    <string name="tube_back">Voltar</string>
+    <string name="tube_more">Mais opções</string>
+    <string name="tube_retry">Tentar de novo</string>
+    <string name="tube_see_all">Ver tudo</string>
+    <string name="tube_clear">Limpar</string>
+    <string name="tube_cancel">Cancelar</string>
+    <string name="tube_close">Fechar</string>
+
+    <!-- Feed -->
+    <string name="tube_chip_all">Tudo</string>
+    <string name="tube_chip_music">Música</string>
+    <string name="tube_chip_games">Games</string>
+    <string name="tube_chip_live">Ao vivo</string>
+    <string name="tube_chip_podcasts">Podcasts</string>
+    <string name="tube_chip_news">Notícias</string>
+    <string name="tube_chip_sports">Esportes</string>
+    <string name="tube_chip_comedy">Humor</string>
+    <string name="tube_chip_tech">Tecnologia</string>
+    <string name="tube_chip_cooking">Culinária</string>
+    <string name="tube_chip_science">Ciência</string>
+    <string name="tube_chip_movies">Filmes e séries</string>
+    <string name="tube_q_music">música</string>
+    <string name="tube_q_games">games</string>
+    <string name="tube_q_live">ao vivo agora</string>
+    <string name="tube_q_podcasts">podcast</string>
+    <string name="tube_q_news">notícias hoje</string>
+    <string name="tube_q_sports">esportes</string>
+    <string name="tube_q_comedy">humor</string>
+    <string name="tube_q_tech">tecnologia</string>
+    <string name="tube_q_cooking">receitas</string>
+    <string name="tube_q_science">ciência</string>
+    <string name="tube_q_movies">trailer oficial</string>
+    <string name="tube_continue">Continuar assistindo</string>
+    <string name="tube_for_you">Para você</string>
+    <string name="tube_feed_error_title">Não deu para carregar</string>
+    <string name="tube_feed_error_body">Confira a internet e puxe para atualizar.</string>
+    <string name="tube_topic_empty">Nada desse tema agora. Tente outro.</string>
+    <string name="tube_interests_title">Do que você gosta?</string>
+    <string name="tube_interests_body">Escolha alguns temas para o feed começar. Depois ele aprende com o que você assiste.</string>
+    <string name="tube_interests_done">Pronto</string>
+    <string name="tube_interests_skip">Agora não</string>
+    <string-array name="tube_interest_topics">
+        <item>Música</item>
+        <item>Games</item>
+        <item>Futebol</item>
+        <item>Humor</item>
+        <item>Tecnologia</item>
+        <item>Culinária</item>
+        <item>Ciência</item>
+        <item>Notícias</item>
+        <item>Filmes</item>
+        <item>Podcasts</item>
+        <item>Viagem</item>
+        <item>Carros</item>
+        <item>Fitness</item>
+        <item>Educação</item>
+        <item>Anime</item>
+        <item>Investimentos</item>
+        <item>Pets</item>
+        <item>Moda</item>
+        <item>História</item>
+        <item>Faça você mesmo</item>
+    </string-array>
+    <!-- Buscas para quem o feed ainda não conhece -->
+    <string-array name="tube_starter_topics">
+        <item>em alta hoje</item>
+        <item>música</item>
+        <item>futebol</item>
+        <item>humor</item>
+        <item>games</item>
+        <item>tecnologia</item>
+        <item>receitas</item>
+        <item>ciência</item>
+    </string-array>
+
+    <!-- Números -->
+    <plurals name="tube_views">
+        <item quantity="one">%s visualização</item>
+        <item quantity="other">%s visualizações</item>
+    </plurals>
+    <plurals name="tube_watching">
+        <item quantity="one">%s assistindo</item>
+        <item quantity="other">%s assistindo</item>
+    </plurals>
+    <plurals name="tube_subscribers">
+        <item quantity="one">%s inscrito</item>
+        <item quantity="other">%s inscritos</item>
+    </plurals>
+    <plurals name="tube_videos_count">
+        <item quantity="one">%s vídeo</item>
+        <item quantity="other">%s vídeos</item>
+    </plurals>
+    <plurals name="tube_likes">
+        <item quantity="one">%s</item>
+        <item quantity="other">%s</item>
+    </plurals>
+    <plurals name="tube_replies">
+        <item quantity="one">%d resposta</item>
+        <item quantity="other">%d respostas</item>
+    </plurals>
+    <string name="tube_live">AO VIVO</string>
+
+    <!-- Assistir -->
+    <string name="tube_like">Curtir</string>
+    <string name="tube_liked">Curtido</string>
+    <string name="tube_save">Mais tarde</string>
+    <string name="tube_saved">Salvo</string>
+    <string name="tube_share">Compartilhar</string>
+    <string name="tube_not_interested">Não curti</string>
+    <string name="tube_subscribe">Inscrever-se</string>
+    <string name="tube_subscribed">Inscrito</string>
+    <string name="tube_description">Descrição</string>
+    <string name="tube_show_more">Mostrar mais</string>
+    <string name="tube_show_less">Mostrar menos</string>
+    <string name="tube_comments">Comentários</string>
+    <string name="tube_comments_off">Os comentários estão desativados.</string>
+    <string name="tube_comments_none">Nenhum comentário ainda.</string>
+    <string name="tube_comments_error">Não deu para carregar os comentários.</string>
+    <string name="tube_pinned">Fixado</string>
+    <string name="tube_up_next">A seguir</string>
+    <string name="tube_autoplay">Reprodução automática</string>
+    <string name="tube_next_in">A seguir em %d</string>
+    <string name="tube_play_now">Tocar agora</string>
+    <string name="tube_minimize">Minimizar</string>
+    <string name="tube_quality_now">%dp</string>
+    <string name="tube_details_error">Não deu para carregar os detalhes.</string>
+    <string name="tube_age_limit">+%d</string>
+
+    <!-- Menu de um vídeo -->
+    <string name="tube_menu_later">Salvar em Assistir mais tarde</string>
+    <string name="tube_menu_later_remove">Tirar de Assistir mais tarde</string>
+    <string name="tube_menu_not_interested">Não tenho interesse</string>
+    <string name="tube_menu_no_channel">Não recomendar este canal</string>
+    <string name="tube_menu_channel">Ir para o canal</string>
+    <string name="tube_menu_share">Compartilhar</string>
+    <string name="tube_menu_remove_history">Remover do histórico</string>
+    <string name="tube_menu_remove_list">Remover desta lista</string>
+    <string name="tube_why_related">Porque você assistiu “%s”</string>
+    <string name="tube_why_similar">Parecido com “%s”</string>
+    <string name="tube_why_subscription">De um canal em que você se inscreveu</string>
+    <string name="tube_why_channel">Você assiste bastante %s</string>
+    <string name="tube_why_topic">Por causa de “%s”</string>
+    <string name="tube_why_trending">Em alta agora</string>
+
+    <!-- Busca -->
+    <string name="tube_search_hint">Buscar vídeos, canais ou links</string>
+    <string name="tube_search_recent">Buscas recentes</string>
+    <string name="tube_filter_all">Tudo</string>
+    <string name="tube_filter_videos">Vídeos</string>
+    <string name="tube_filter_channels">Canais</string>
+    <string name="tube_filter_playlists">Playlists</string>
+    <string name="tube_search_empty">Nada encontrado</string>
+    <string name="tube_search_empty_body">Tente outras palavras.</string>
+    <string name="tube_search_error">Não deu para buscar agora.</string>
+    <string name="tube_link_unknown">Esse link não é de um vídeo, canal ou playlist do YouTube.</string>
+
+    <!-- Canal e playlist -->
+    <string name="tube_channel_videos">Vídeos</string>
+    <string name="tube_channel_shorts">Shorts</string>
+    <string name="tube_channel_empty">Nenhum vídeo por aqui.</string>
+    <string name="tube_channel_error">Não deu para abrir o canal.</string>
+    <string name="tube_playlist">Playlist</string>
+    <string name="tube_playlist_error">Não deu para abrir a playlist.</string>
+    <string name="tube_play_all">Assistir</string>
+
+    <!-- Inscrições -->
+    <string name="tube_subs_empty_title">Sem inscrições ainda</string>
+    <string name="tube_subs_empty_body">Inscreva-se em canais para ver os vídeos novos deles aqui. Fica tudo no celular, sem conta.</string>
+    <string name="tube_subs_manage">Gerenciar</string>
+    <string name="tube_subs_latest">Vídeos novos</string>
+    <string name="tube_import">Importar do YouTube</string>
+    <string name="tube_import_body">Arquivo subscriptions.csv do Google Takeout</string>
+    <plurals name="tube_import_done">
+        <item quantity="one">%d canal importado</item>
+        <item quantity="other">%d canais importados</item>
+    </plurals>
+    <string name="tube_import_failed">Não deu para ler esse arquivo.</string>
+
+    <!-- Biblioteca -->
+    <string name="tube_history">Histórico</string>
+    <string name="tube_later">Assistir mais tarde</string>
+    <string name="tube_liked_videos">Vídeos curtidos</string>
+    <string name="tube_your_subs">Inscrições</string>
+    <string name="tube_history_empty">Os vídeos que você assistir aparecem aqui.</string>
+    <string name="tube_later_empty">Salve vídeos para assistir depois pelo menu ⋮.</string>
+    <string name="tube_liked_empty">Os vídeos que você curtir aparecem aqui.</string>
+    <string name="tube_list_empty_title">Nada por aqui</string>
+    <string name="tube_clear_history">Limpar histórico</string>
+    <string name="tube_clear_history_title">Limpar o histórico?</string>
+    <string name="tube_clear_history_body">O feed esquece o que aprendeu com ele.</string>
+    <string name="tube_library_title">Biblioteca</string>
+
+    <!-- Ajustes -->
+    <string name="tube_set_section_look">Aparência</string>
+    <string name="tube_set_section_playback">Reprodução</string>
+    <string name="tube_set_section_privacy">Privacidade e feed</string>
+    <string name="tube_set_theme">Tema</string>
+    <string name="tube_theme_light">Claro</string>
+    <string name="tube_theme_dark">Escuro</string>
+    <string name="tube_theme_system">Sistema</string>
+    <string name="tube_set_accent">Cor de destaque</string>
+    <string name="tube_set_quality">Qualidade máxima</string>
+    <string name="tube_set_quality_body">Mais qualidade usa mais dados.</string>
+    <string name="tube_set_autoplay">Reprodução automática</string>
+    <string name="tube_set_autoplay_body">Quando um vídeo termina, o próximo começa sozinho.</string>
+    <string name="tube_set_background">Tocar em segundo plano</string>
+    <string name="tube_set_background_body">O som continua com o app fechado, com controles na notificação.</string>
+    <string name="tube_set_pip">Janela flutuante</string>
+    <string name="tube_set_pip_body">Ao sair do app com um vídeo tocando, ele vira uma janelinha que dá para mover.</string>
+    <string name="tube_set_cache">Limpar vídeos guardados</string>
+    <string name="tube_set_cache_body">%s guardados para assistir sem internet e voltar trechos.</string>
+    <string name="tube_set_history_paused">Pausar histórico</string>
+    <string name="tube_set_history_paused_body">Nada novo entra no histórico, e o feed para de aprender.</string>
+    <string name="tube_set_reset">Redefinir recomendações</string>
+    <string name="tube_set_reset_body">Esquece os “não tenho interesse” e os temas escolhidos.</string>
+    <string name="tube_set_reset_done">Recomendações redefinidas.</string>
+    <string name="tube_set_clear_searches">Limpar buscas</string>
+    <string name="tube_set_clear_searches_done">Buscas apagadas.</string>
+    <string name="tube_set_about">Sobre</string>
+    <string name="tube_set_about_body">FreeVideo %s · sem conta e sem anúncio. Tudo o que você assiste fica só no celular. Lê o YouTube pelo NewPipeExtractor.</string>
+    <string name="tube_set_how">Como o feed funciona</string>
+    <string name="tube_set_how_body">O feed junta vídeos sugeridos depois dos que você mais assistiu, os novos dos seus canais, buscas pelos seus temas e o que está em alta. Pesa quanto de cada vídeo você viu, o que curtiu e o que dispensou, e mistura canais para não repetir.</string>
+</resources>

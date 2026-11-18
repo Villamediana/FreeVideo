@@ -231,7 +231,7 @@ class UpdatesTest {
         runBlocking { withTimeout(5_000) { while (installer.installed.isEmpty()) kotlinx.coroutines.delay(10) } }
         assertTrue(installer.installed.single().contentEquals(apkBytes))
         assertEquals("1.13.0", memory.read().installing)
-        assertTrue(File(apkDir, "FreeSong-1.13.0.apk").isFile)
+        assertTrue(File(apkDir, "FreeVideo-1.13.0.apk").isFile)
     }
 
     @Test
