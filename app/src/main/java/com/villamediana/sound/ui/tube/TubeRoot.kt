@@ -35,7 +35,6 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
@@ -151,7 +150,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     // Search takes the whole page (its keyboard needs the room): no bar under it (the mini player stays).
     val barHidden = full || dest?.hasRoute(TubeSearchRoute::class) == true
     val bar = if (barHidden) 0.dp else BAR_HEIGHT
-    val mini by animateDpAsState(if (showMini) MINI_HEIGHT + 8.dp else 0.dp, label = "mini")
+    val mini by animateDpAsState(if (showMini) MINI_HEIGHT + 3.dp else 0.dp, label = "mini")
 
     CompositionLocalProvider(
         LocalInPip provides inPip,
@@ -232,7 +231,7 @@ internal object SearchInbox {
 
 private const val PAGE_MS = 320
 private val BAR_HEIGHT = 64.dp
-private val MINI_HEIGHT = 64.dp
+private val MINI_HEIGHT = 74.dp
 
 @Composable
 private fun Page(color: Color = sc.Ink, content: @Composable () -> Unit) {
@@ -356,9 +355,12 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, i
 // ------------------------------------------------------------------ mini player
 
 /**
- * The video going on while browsing: a floating card with the picture, title and channel, play/pause
- * and close; the ember line along its bottom is how far it is. Tap it to come back to the video.
+ * The video going on while browsing: a straight bar across the screen, over the tabs. On the left the
+ * video's picture (the video itself while it plays; its thumbnail, with a play mark, while paused),
+ * then title and channel, a big play/pause and close. The line along its bottom is how far it is.
+ * Tap it to come back to the video.
  */
+@OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
 private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -> Unit) {
     val video = state.video ?: return
@@ -367,48 +369,55 @@ private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -
     val progress = rememberVideoProgress(exo, tickMs = 1_000)
     val accent = sc.Accent
     val track = sc.Hairline
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        Modifier
-            .padding(horizontal = 8.dp)
-            .padding(bottom = 8.dp)
-            .fillMaxWidth()
-            .height(MINI_HEIGHT)
-            .pressScale(interaction, 0.985f)
-            .floatingShadow()
-            .clip(RoundedCornerShape(18.dp))
-            .background(sc.Surface2)
-            .clickable(interactionSource = interaction, indication = null, onClick = onOpen),
-    ) {
-        Row(Modifier.fillMaxSize().padding(start = 6.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.height(MINI_HEIGHT - 12.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
-                // The video itself (the phone decodes it anyway while it plays); its thumbnail until the first frame.
-                AsyncImage(model = video.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+    val playLabel = stringResource(if (state.playing) R.string.video_pause else R.string.video_play)
+    Column(Modifier.fillMaxWidth().background(sc.Surface2)) {
+        Box(Modifier.fillMaxWidth().height(1.dp).background(sc.Hairline))
+        Row(
+            Modifier.fillMaxWidth().height(MINI_HEIGHT).clickable(onClick = onOpen),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
                 val p = exo
+                var cover = true
                 if (p != null && !LocalInPip.current) {
                     val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
                     Box(Modifier.aspectRatio(ratio)) {
-                        // A texture (not a SurfaceView): it follows the card's rounded corners.
+                        // A texture (not a SurfaceView): it stays inside the bar while the pages move.
                         androidx.media3.ui.compose.PlayerSurface(player = p, modifier = Modifier.fillMaxSize(), surfaceType = androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW)
+                    }
+                    // Until the video draws its first frame here, the thumbnail stands in (never a black box).
+                    cover = androidx.media3.ui.compose.state.rememberPresentationState(p).coverSurface
+                }
+                if (cover || !state.playing) {
+                    AsyncImage(model = video.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                }
+                if (!state.playing) {
+                    Box(
+                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)).clickable(onClickLabel = playLabel, onClick = player::togglePlayPause),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(34.dp))
                     }
                 }
             }
-            Spacer(Modifier.width(12.dp))
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
-                Text(video.title, style = MaterialTheme.typography.titleSmall, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(2.dp))
+                Text(video.title, style = MaterialTheme.typography.titleMedium, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(3.dp))
                 Text(video.channelName, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             CircleIconButton(
                 if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                stringResource(if (state.playing) R.string.video_pause else R.string.video_play),
+                playLabel,
                 player::togglePlayPause,
-                iconSize = 28.dp,
+                size = 52.dp,
+                iconSize = 34.dp,
             )
-            CircleIconButton(Icons.Rounded.Close, stringResource(R.string.tube_close), player::close, tint = sc.TextMuted)
+            CircleIconButton(Icons.Rounded.Close, stringResource(R.string.tube_close), player::close, tint = sc.TextMuted, size = 48.dp, iconSize = 24.dp)
+            Spacer(Modifier.width(4.dp))
         }
         Box(
-            Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 14.dp).height(2.5.dp).clip(CircleShape).drawBehind {
+            Modifier.fillMaxWidth().height(2.dp).drawBehind {
                 drawRect(track)
                 val total = progress.durationMs
                 if (total > 0) drawRect(accent, size = size.copy(width = size.width * (progress.positionMs.toFloat() / total).coerceIn(0f, 1f)))
@@ -416,12 +425,3 @@ private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -
         )
     }
 }
-
-/** A soft shadow under floating cards (the mini player), lighter on the light theme. */
-@Composable
-private fun Modifier.floatingShadow(): Modifier = this.shadow(
-    elevation = if (sc.isLight) 10.dp else 0.dp,
-    shape = RoundedCornerShape(18.dp),
-    ambientColor = Color.Black.copy(alpha = 0.18f),
-    spotColor = Color.Black.copy(alpha = 0.18f),
-)

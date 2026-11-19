@@ -33,8 +33,8 @@ android {
         applicationId = "com.villamediana.video"
         minSdk = 26
         targetSdk = 36
-        versionCode = 5
-        versionName = "1.2.2"
+        versionCode = 6
+        versionName = "1.2.3"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // FreeVideo has no relay: profiles, friends and jams stay off (the FreeSong relay is not shared).
         buildConfigField("String", "RELAY_URL", "\"\"")
