@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#FFFFFF</color>
-    <color name="accent">#E8304A</color>
+    <color name="ink">#FAF7F1</color>
+    <color name="accent">#3F5B83</color>
     <color name="royal">#2341C9</color>
     <!-- Splash: always the dark ink (the logo is graphite), whatever the theme -->
     <color name="splash_ink">#0E0F14</color>

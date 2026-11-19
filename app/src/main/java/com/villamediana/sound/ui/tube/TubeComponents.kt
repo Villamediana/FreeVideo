@@ -61,6 +61,9 @@ import com.villamediana.sound.ui.theme.Dimens
 import com.villamediana.sound.ui.theme.sc
 
 internal val ThumbShape = RoundedCornerShape(16.dp)
+
+/** "AO VIVO" on a picture: one warm red that reads on any thumbnail, in both themes. */
+private val LiveRed = Color(0xFFC94F43)
 internal val SmallThumbShape = RoundedCornerShape(12.dp)
 
 /** A 16:9 frame of the video with its length (or "AO VIVO") and how far it was watched. */
@@ -82,7 +85,7 @@ fun VideoThumb(
             modifier = Modifier.fillMaxSize(),
         )
         when {
-            video.live -> Badge(stringResource(R.string.tube_live), sc.Danger, Color.White, compact)
+            video.live -> Badge(stringResource(R.string.tube_live), LiveRed, Color.White, compact)
             video.durationMs > 0 -> Badge(formatDuration(video.durationMs), Color.Black.copy(alpha = 0.78f), Color.White, compact)
         }
         if (progress > 0.01f) {

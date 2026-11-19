@@ -59,9 +59,9 @@ data class Settings(
     val chordInstrument: String = "VIOLAO",
     /** "Tocar junto": with the chords on, the lyrics become a stage with the chord ringing now, the next and when it comes. */
     val chordsPlayAlong: Boolean = false,
-    val theme: ThemeMode = ThemeMode.DARK,
+    val theme: ThemeMode = ThemeMode.LIGHT,
     /** Highlight color id (see [com.villamediana.sound.ui.theme.SoundAccents]). */
-    val accent: String = "ember",
+    val accent: String = "ink",
     /** Genres picked on the first Home ("O que você curte?"), ids of [com.villamediana.sound.discover.GenreCatalog]. */
     val favoriteGenres: Set<String> = emptySet(),
     /** The genre picker was answered (or skipped): Home shows the suggestions from then on. */
@@ -119,8 +119,8 @@ class SettingsStore(private val context: Context) {
             chords = p[K.chords] ?: false,
             chordInstrument = p[K.chordInstrument] ?: "VIOLAO",
             chordsPlayAlong = p[K.chordsPlayAlong] ?: false,
-            theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
-            accent = p[K.accent] ?: "ember",
+            theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.LIGHT,
+            accent = p[K.accent] ?: "ink",
             favoriteGenres = p[K.genres].orEmpty(),
             genresChosen = p[K.genresChosen] ?: false,
             listenedBeforeMs = p[K.listenedBefore] ?: 0L,

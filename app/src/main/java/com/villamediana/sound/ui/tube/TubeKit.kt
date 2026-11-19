@@ -42,14 +42,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.onPlaced
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -75,19 +73,15 @@ fun TubeMark(modifier: Modifier = Modifier, size: Dp = 30.dp) {
     )
 }
 
-/** Mark + "FreeVideo" (the "Video" in the ember): the home header. */
+/** Mark + "FreeVideo", in the page's ink: the home header. */
 @Composable
 fun TubeWordmark(modifier: Modifier = Modifier) {
-    val accent = sc.Accent
     Row(modifier, verticalAlignment = Alignment.CenterVertically) {
         TubeMark(size = 30.dp)
         Spacer(Modifier.width(9.dp))
         Text(
-            buildAnnotatedString {
-                append("Free")
-                withStyle(SpanStyle(color = accent)) { append("Video") }
-            },
-            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.035).em),
+            stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineLarge.copy(fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = (-0.03).em),
             color = sc.Text,
         )
     }
@@ -223,7 +217,7 @@ fun TubeSwitch(checked: Boolean, onChange: ((Boolean) -> Unit)?, modifier: Modif
         modifier = modifier,
         colors = SwitchDefaults.colors(
             checkedTrackColor = sc.Accent,
-            checkedThumbColor = Color.White,
+            checkedThumbColor = if (sc.isLight) Color.White else sc.Ink,
             checkedBorderColor = Color.Transparent,
             uncheckedTrackColor = sc.Surface3,
             uncheckedThumbColor = if (sc.isLight) Color.White else sc.TextMuted,

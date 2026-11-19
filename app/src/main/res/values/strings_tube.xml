@@ -39,12 +39,10 @@
     <string name="tube_q_science">ciência</string>
     <string name="tube_q_movies">trailer oficial</string>
     <string name="tube_continue">Continuar assistindo</string>
-    <string name="tube_for_you">Para você</string>
     <string name="tube_feed_error_title">Não deu para carregar</string>
     <string name="tube_feed_error_body">Confira a internet e puxe para atualizar.</string>
     <string name="tube_topic_empty">Nada desse tema agora. Tente outro.</string>
     <string name="tube_interests_title">Do que você gosta?</string>
-    <string name="tube_interests_body">Escolha alguns temas para o feed começar. Depois ele aprende com o que você assiste.</string>
     <string name="tube_interests_done">Pronto</string>
     <string name="tube_interests_skip">Agora não</string>
     <string-array name="tube_interest_topics">
@@ -98,10 +96,6 @@
         <item quantity="one">%s vídeo</item>
         <item quantity="other">%s vídeos</item>
     </plurals>
-    <plurals name="tube_likes">
-        <item quantity="one">%s</item>
-        <item quantity="other">%s</item>
-    </plurals>
     <plurals name="tube_replies">
         <item quantity="one">%d resposta</item>
         <item quantity="other">%d respostas</item>
@@ -118,10 +112,8 @@
     <string name="tube_subscribe">Inscrever-se</string>
     <string name="tube_subscribed">Inscrito</string>
     <string name="tube_description">Descrição</string>
-    <string name="tube_show_more">Mostrar mais</string>
     <string name="tube_show_less">Mostrar menos</string>
     <string name="tube_comments">Comentários</string>
-    <string name="tube_comments_off">Os comentários estão desativados.</string>
     <string name="tube_comments_none">Nenhum comentário ainda.</string>
     <string name="tube_comments_error">Não deu para carregar os comentários.</string>
     <string name="tube_pinned">Fixado</string>
@@ -132,7 +124,6 @@
     <string name="tube_minimize">Minimizar</string>
     <string name="tube_quality_now">%dp</string>
     <string name="tube_details_error">Não deu para carregar os detalhes.</string>
-    <string name="tube_age_limit">+%d</string>
 
     <!-- Menu de um vídeo -->
     <string name="tube_menu_later">Salvar em Assistir mais tarde</string>
@@ -151,7 +142,7 @@
     <string name="tube_why_trending">Em alta agora</string>
 
     <!-- Busca -->
-    <string name="tube_search_hint">Buscar vídeos, canais ou links</string>
+    <string name="tube_search_hint">Buscar</string>
     <string name="tube_search_recent">Buscas recentes</string>
     <string name="tube_filter_all">Tudo</string>
     <string name="tube_filter_videos">Vídeos</string>
@@ -160,7 +151,6 @@
     <string name="tube_search_empty">Nada encontrado</string>
     <string name="tube_search_empty_body">Tente outras palavras.</string>
     <string name="tube_search_error">Não deu para buscar agora.</string>
-    <string name="tube_link_unknown">Esse link não é de um vídeo, canal ou playlist do YouTube.</string>
 
     <!-- Canal e playlist -->
     <string name="tube_channel_videos">Vídeos</string>
@@ -173,9 +163,8 @@
 
     <!-- Inscrições -->
     <string name="tube_subs_empty_title">Sem inscrições ainda</string>
-    <string name="tube_subs_empty_body">Inscreva-se em canais para ver os vídeos novos deles aqui. Fica tudo no celular, sem conta.</string>
+    <string name="tube_subs_empty_body">Os vídeos novos dos seus canais aparecem aqui.</string>
     <string name="tube_subs_manage">Gerenciar</string>
-    <string name="tube_subs_latest">Vídeos novos</string>
     <string name="tube_import">Importar do YouTube</string>
     <string name="tube_import_body">Arquivo subscriptions.csv do Google Takeout</string>
     <plurals name="tube_import_done">
@@ -202,58 +191,31 @@
     <string name="tube_set_section_look">Aparência</string>
     <string name="tube_set_section_playback">Reprodução</string>
     <string name="tube_set_section_privacy">Privacidade e feed</string>
-    <string name="tube_set_theme">Tema</string>
     <string name="tube_theme_light">Claro</string>
     <string name="tube_theme_dark">Escuro</string>
     <string name="tube_theme_system">Sistema</string>
-    <string name="tube_set_accent">Cor de destaque</string>
     <string name="tube_set_quality">Qualidade máxima</string>
-    <string name="tube_set_quality_body">Mais qualidade usa mais dados.</string>
     <string name="tube_set_autoplay">Reprodução automática</string>
-    <string name="tube_set_autoplay_body">O próximo começa sozinho</string>
     <string name="tube_set_background">Tocar em segundo plano</string>
-    <string name="tube_set_background_body">O som segue com a tela apagada</string>
     <string name="tube_set_pip">Janela flutuante</string>
-    <string name="tube_set_pip_body">Uma janelinha ao sair do app</string>
     <string name="tube_set_cache">Vídeos guardados</string>
-    <string name="tube_set_cache_body">Eles saem do celular. Os próximos voltam a ser guardados enquanto você assiste.</string>
+    <string name="tube_set_cache_body">Eles saem do celular.</string>
     <string name="tube_set_history_paused">Pausar histórico</string>
-    <string name="tube_set_history_paused_body">O feed para de aprender</string>
     <string name="tube_set_reset">Redefinir recomendações</string>
-    <string name="tube_set_reset_body">O feed esquece os “não tenho interesse”, os temas escolhidos e o que aprendeu.</string>
+    <string name="tube_set_reset_body">O feed começa do zero.</string>
     <string name="tube_set_reset_done">Recomendações redefinidas.</string>
     <string name="tube_set_clear_searches">Limpar buscas</string>
     <string name="tube_set_clear_searches_done">Buscas apagadas.</string>
     <string name="tube_set_about">Sobre</string>
-    <string name="tube_set_how">Como o feed funciona</string>
 
     <!-- 1.2.0: Ajustes, canal, comentários, player -->
     <string name="tube_more_videos">Mais vídeos</string>
     <string name="tube_set_section_storage">Armazenamento</string>
     <string name="tube_set_version">Versão</string>
-    <string name="tube_set_credits">Lê o YouTube pelo NewPipeExtractor. Sem conta, sem anúncio.</string>
     <string name="tube_set_reset_title">Redefinir recomendações?</string>
     <string name="tube_set_reset_confirm">Redefinir</string>
     <string name="tube_set_cache_title">Apagar vídeos guardados?</string>
     <string name="tube_set_cache_used">%1$s de %2$s</string>
-    <string name="tube_set_cache_hint">Para terminar ou voltar um vídeo sem internet.</string>
-    <string name="tube_set_tagline">Seu feed de vídeos, feito no seu celular.</string>
-    <string name="tube_badge_no_account">Sem conta</string>
-    <string name="tube_badge_no_ads">Sem anúncio</string>
-    <string name="tube_badge_local">No celular</string>
-    <string name="tube_how_sub">Tudo é calculado no seu celular</string>
-    <string name="tube_how_watch_t">O que você assiste</string>
-    <string name="tube_how_watch_b">Quanto de cada vídeo você viu conta mais que o clique.</string>
-    <string name="tube_how_taste_t">O que você curte e dispensa</string>
-    <string name="tube_how_taste_b">Curtidas puxam parecidos; “não curti” e vídeos largados no começo afastam.</string>
-    <string name="tube_how_subs_t">Seus canais</string>
-    <string name="tube_how_subs_b">Os vídeos novos de quem você segue entram primeiro.</string>
-    <string name="tube_how_new_t">Novidades</string>
-    <string name="tube_how_new_b">Temas parecidos com os seus e um pouco do que está em alta.</string>
-    <string name="tube_how_mix_t">Variedade</string>
-    <string name="tube_how_mix_b">No máximo 3 vídeos do mesmo canal por página, sem repetir.</string>
-    <string name="tube_how_local_t">Só no celular</string>
-    <string name="tube_how_local_b">Nada sai do aparelho: sem conta e sem histórico no YouTube.</string>
     <string name="tube_channel_about">Sobre</string>
     <string name="tube_more_short">…mais</string>
     <string name="tube_figure_likes">curtidas</string>

@@ -103,6 +103,7 @@ import com.villamediana.sound.ui.components.pressScale
 import com.villamediana.sound.ui.sheets.ConfirmDialog
 import com.villamediana.sound.ui.sheets.SoundSheet
 import com.villamediana.sound.ui.theme.Dimens
+import com.villamediana.sound.ui.theme.Pastel
 import com.villamediana.sound.ui.theme.SoundAccents
 import com.villamediana.sound.ui.theme.SoundPalettes
 import com.villamediana.sound.ui.theme.sc
@@ -111,14 +112,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** Colors of the settings' icon tiles: each group its own, so the page reads at a glance. */
+/** Colors of the settings' icon tiles: each group its own pastel, so the page reads at a glance. */
 private object Tiles {
-    val Look = Color(0xFFB65CFF)
-    val Play = Color(0xFFFF4D62)
-    val Store = Color(0xFF2FA8FF)
-    val Private = Color(0xFF20B47A)
-    val Danger = Color(0xFFFF5A4E)
-    val About = Color(0xFFFF9F2E)
+    val Look: Color get() = Pastel.Lilac
+    val Play: Color get() = Pastel.Coral
+    val Store: Color get() = Pastel.Sky
+    val Private: Color get() = Pastel.Sage
+    val Danger: Color get() = Pastel.Clay
+    val About: Color get() = Pastel.Honey
 }
 
 private enum class Confirm { RESET, CLEAR_HISTORY, CLEAR_CACHE }
@@ -135,7 +136,6 @@ fun TubeSettingsScreen() {
     val look by graph.settings.settings.collectAsState(initial = null)
     val prefs by tube.settings.prefs.collectAsState(initial = TubePrefs())
     var confirm by remember { mutableStateOf<Confirm?>(null) }
-    var howOpen by remember { mutableStateOf(false) }
     var cached by remember { mutableLongStateOf(-1L) }
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun toast(id: Int) = Toast.makeText(context, context.getString(id), Toast.LENGTH_SHORT).show()
@@ -144,21 +144,15 @@ fun TubeSettingsScreen() {
     Column(Modifier.fillMaxSize()) {
         PageTopBar(stringResource(R.string.tube_settings), onBack = nav::back)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
-            item(key = "hero") { Hero() }
-
             item(key = "look") {
                 Group(stringResource(R.string.tube_set_section_look)) {
                     Column(Modifier.padding(16.dp)) {
-                        Text(stringResource(R.string.tube_set_theme), style = MaterialTheme.typography.titleSmall, color = sc.TextMuted)
-                        Spacer(Modifier.height(12.dp))
                         Row(Modifier.selectableGroup(), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                             listOf(ThemeMode.LIGHT to R.string.tube_theme_light, ThemeMode.DARK to R.string.tube_theme_dark, ThemeMode.SYSTEM to R.string.tube_theme_system).forEach { (mode, label) ->
                                 ThemeTile(mode, stringResource(label), selected = look?.theme == mode, onClick = { scope.launch { graph.settings.setTheme(mode) } }, modifier = Modifier.weight(1f))
                             }
                         }
-                        Spacer(Modifier.height(20.dp))
-                        Text(stringResource(R.string.tube_set_accent), style = MaterialTheme.typography.titleSmall, color = sc.TextMuted)
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(18.dp))
                         AccentRow(selected = look?.accent, onPick = { id -> scope.launch { graph.settings.setAccent(id) } })
                     }
                 }
@@ -170,10 +164,7 @@ fun TubeSettingsScreen() {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconTile(Icons.Rounded.HighQuality, Tiles.Play)
                             Spacer(Modifier.width(14.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.tube_set_quality), style = MaterialTheme.typography.titleMedium, color = sc.Text)
-                                Text(stringResource(R.string.tube_set_quality_body), style = MaterialTheme.typography.bodySmall, color = sc.TextMuted)
-                            }
+                            Text(stringResource(R.string.tube_set_quality), style = MaterialTheme.typography.titleMedium, color = sc.Text, modifier = Modifier.weight(1f))
                         }
                         Spacer(Modifier.height(14.dp))
                         Segmented(
@@ -183,16 +174,16 @@ fun TubeSettingsScreen() {
                         )
                     }
                     Divider()
-                    ToggleRow(Icons.Rounded.Autorenew, Tiles.Play, stringResource(R.string.tube_set_autoplay), stringResource(R.string.tube_set_autoplay_body), prefs.autoplay) { on ->
+                    ToggleRow(Icons.Rounded.Autorenew, Tiles.Play, stringResource(R.string.tube_set_autoplay), null, prefs.autoplay) { on ->
                         scope.launch { tube.settings.setAutoplay(on) }
                     }
                     Divider()
-                    ToggleRow(Icons.Rounded.Headphones, Tiles.Play, stringResource(R.string.tube_set_background), stringResource(R.string.tube_set_background_body), prefs.keepPlayingInBackground) { on ->
+                    ToggleRow(Icons.Rounded.Headphones, Tiles.Play, stringResource(R.string.tube_set_background), null, prefs.keepPlayingInBackground) { on ->
                         if (on && Build.VERSION.SDK_INT >= 33) notifications.launch(Manifest.permission.POST_NOTIFICATIONS)
                         scope.launch { tube.settings.setKeepPlayingInBackground(on) }
                     }
                     Divider()
-                    ToggleRow(Icons.Rounded.PictureInPictureAlt, Tiles.Play, stringResource(R.string.tube_set_pip), stringResource(R.string.tube_set_pip_body), prefs.pictureInPicture) { on ->
+                    ToggleRow(Icons.Rounded.PictureInPictureAlt, Tiles.Play, stringResource(R.string.tube_set_pip), null, prefs.pictureInPicture) { on ->
                         scope.launch { tube.settings.setPictureInPicture(on) }
                     }
                 }
@@ -206,11 +197,9 @@ fun TubeSettingsScreen() {
 
             item(key = "privacy") {
                 Group(stringResource(R.string.tube_set_section_privacy)) {
-                    ToggleRow(Icons.Rounded.HistoryToggleOff, Tiles.Private, stringResource(R.string.tube_set_history_paused), stringResource(R.string.tube_set_history_paused_body), prefs.historyPaused) { on ->
+                    ToggleRow(Icons.Rounded.HistoryToggleOff, Tiles.Private, stringResource(R.string.tube_set_history_paused), null, prefs.historyPaused) { on ->
                         scope.launch { tube.settings.setHistoryPaused(on) }
                     }
-                    Divider()
-                    ActionRow(Icons.Rounded.AutoAwesome, Tiles.Private, stringResource(R.string.tube_set_how), onClick = { howOpen = true })
                     Divider()
                     ActionRow(Icons.Rounded.RestartAlt, Tiles.Private, stringResource(R.string.tube_set_reset), onClick = { confirm = Confirm.RESET })
                     Divider()
@@ -231,13 +220,7 @@ fun TubeSettingsScreen() {
                     Divider()
                     InfoRow(Icons.Rounded.PhoneAndroid, Tiles.About, stringResource(R.string.tube_set_version), BuildConfig.VERSION_NAME)
                 }
-                Text(
-                    stringResource(R.string.tube_set_credits),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = sc.TextFaint,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp, vertical = 18.dp),
-                )
+                Spacer(Modifier.height(18.dp))
             }
             item(key = "bottom") { Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)) }
         }
@@ -285,63 +268,9 @@ fun TubeSettingsScreen() {
         )
         null -> Unit
     }
-    if (howOpen) HowTheFeedWorks(onClose = { howOpen = false })
 }
 
 // ------------------------------------------------------------------ pieces
-
-/** The app at the top: its mark, name and what it promises, in three small badges. */
-@Composable
-private fun Hero() {
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .padding(top = 6.dp, bottom = 8.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(sc.SoftTop, sc.Surface1)))
-            .padding(20.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        TubeMark(size = 64.dp)
-        Spacer(Modifier.height(12.dp))
-        TubeWordmarkText()
-        Spacer(Modifier.height(4.dp))
-        Text(stringResource(R.string.tube_set_tagline), style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted, textAlign = TextAlign.Center)
-        Spacer(Modifier.height(14.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Badge(Icons.Rounded.Lock, stringResource(R.string.tube_badge_no_account))
-            Badge(Icons.Rounded.Block, stringResource(R.string.tube_badge_no_ads))
-            Badge(Icons.Rounded.PhoneAndroid, stringResource(R.string.tube_badge_local))
-        }
-    }
-}
-
-@Composable
-private fun TubeWordmarkText() {
-    val accent = sc.Accent
-    Text(
-        androidx.compose.ui.text.buildAnnotatedString {
-            append("Free")
-            pushStyle(androidx.compose.ui.text.SpanStyle(color = accent))
-            append("Video")
-            pop()
-        },
-        style = MaterialTheme.typography.headlineMedium.copy(fontWeight = FontWeight.ExtraBold),
-        color = sc.Text,
-    )
-}
-
-@Composable
-private fun Badge(icon: ImageVector, text: String) {
-    Row(
-        Modifier.clip(CircleShape).background(sc.Ink.copy(alpha = if (sc.isLight) 0.9f else 0.55f)).padding(horizontal = 10.dp, vertical = 6.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(icon, null, tint = sc.Accent, modifier = Modifier.size(14.dp))
-        Spacer(Modifier.width(5.dp))
-        Text(text, style = MaterialTheme.typography.labelMedium, color = sc.Text, maxLines = 1)
-    }
-}
 
 /** A group: its name, then its rows on one rounded card. */
 @Composable
@@ -434,8 +363,6 @@ private fun StorageRow(bytes: Long, onClear: () -> Unit) {
         Box(Modifier.fillMaxWidth().height(8.dp).clip(CircleShape).background(sc.Surface3)) {
             Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).clip(CircleShape).background(Tiles.Store))
         }
-        Spacer(Modifier.height(10.dp))
-        Text(stringResource(R.string.tube_set_cache_hint), style = MaterialTheme.typography.bodySmall, color = sc.TextFaint)
     }
 }
 
@@ -470,7 +397,7 @@ private fun ThemeTile(mode: ThemeMode, label: String, selected: Boolean, onClick
                 Box(
                     Modifier.align(Alignment.TopEnd).padding(6.dp).size(20.dp).clip(CircleShape).background(sc.Accent),
                     contentAlignment = Alignment.Center,
-                ) { Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(14.dp)) }
+                ) { Icon(Icons.Rounded.Check, null, tint = sc.OnAccent, modifier = Modifier.size(14.dp)) }
             }
         }
         Spacer(Modifier.height(8.dp))
@@ -524,7 +451,7 @@ private fun AccentRow(selected: String?, onPick: (String) -> Unit) {
                     .semantics { contentDescription = a.id },
                 contentAlignment = Alignment.Center,
             ) {
-                if (on) Icon(Icons.Rounded.Check, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                if (on) Icon(Icons.Rounded.Check, null, tint = if (sc.isLight) Color.White else sc.Ink, modifier = Modifier.size(18.dp))
             }
         }
     }
@@ -591,43 +518,6 @@ private fun UpdateSettingRow() {
                 release != null -> Box(Modifier.size(10.dp).clip(CircleShape).background(sc.Accent))
                 else -> Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = sc.TextFaint)
             }
-        }
-    }
-}
-
-/** "Como o feed funciona": what it weighs, one icon and one line each (instead of a paragraph). */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HowTheFeedWorks(onClose: () -> Unit) {
-    SoundSheet(onDismissRequest = onClose) {
-        Column(Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 12.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconTile(Icons.Rounded.AutoAwesome, sc.Accent, size = 44.dp)
-                Spacer(Modifier.width(14.dp))
-                Column {
-                    Text(stringResource(R.string.tube_set_how), style = MaterialTheme.typography.headlineSmall, color = sc.Text)
-                    Text(stringResource(R.string.tube_how_sub), style = MaterialTheme.typography.bodySmall, color = sc.TextMuted)
-                }
-            }
-            Spacer(Modifier.height(18.dp))
-            HowRow(Icons.Rounded.History, Tiles.Play, R.string.tube_how_watch_t, R.string.tube_how_watch_b)
-            HowRow(Icons.Rounded.ThumbsUpDown, Tiles.Look, R.string.tube_how_taste_t, R.string.tube_how_taste_b)
-            HowRow(Icons.Rounded.Subscriptions, Tiles.Danger, R.string.tube_how_subs_t, R.string.tube_how_subs_b)
-            HowRow(Icons.Rounded.Explore, Tiles.Store, R.string.tube_how_new_t, R.string.tube_how_new_b)
-            HowRow(Icons.Rounded.Shuffle, Tiles.Private, R.string.tube_how_mix_t, R.string.tube_how_mix_b)
-            HowRow(Icons.Rounded.Lock, Tiles.About, R.string.tube_how_local_t, R.string.tube_how_local_b)
-        }
-    }
-}
-
-@Composable
-private fun HowRow(icon: ImageVector, tint: Color, title: Int, body: Int) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 9.dp), verticalAlignment = Alignment.Top) {
-        IconTile(icon, tint)
-        Spacer(Modifier.width(14.dp))
-        Column(Modifier.weight(1f)) {
-            Text(stringResource(title), style = MaterialTheme.typography.titleSmall, color = sc.Text)
-            Text(stringResource(body), style = MaterialTheme.typography.bodySmall, color = sc.TextMuted)
         }
     }
 }

@@ -37,12 +37,10 @@
     <string name="tube_q_science">ciencia</string>
     <string name="tube_q_movies">tráiler oficial</string>
     <string name="tube_continue">Seguir viendo</string>
-    <string name="tube_for_you">Para ti</string>
     <string name="tube_feed_error_title">No se pudo cargar</string>
     <string name="tube_feed_error_body">Revisa la conexión y desliza para actualizar.</string>
     <string name="tube_topic_empty">Nada de este tema ahora. Prueba otro.</string>
     <string name="tube_interests_title">¿Qué te gusta?</string>
-    <string name="tube_interests_body">Elige algunos temas para empezar. Después aprende de lo que ves.</string>
     <string name="tube_interests_done">Listo</string>
     <string name="tube_interests_skip">Ahora no</string>
     <string-array name="tube_interest_topics">
@@ -94,10 +92,6 @@
         <item quantity="one">%s video</item>
         <item quantity="other">%s videos</item>
     </plurals>
-    <plurals name="tube_likes">
-        <item quantity="one">%s</item>
-        <item quantity="other">%s</item>
-    </plurals>
     <plurals name="tube_replies">
         <item quantity="one">%d respuesta</item>
         <item quantity="other">%d respuestas</item>
@@ -113,10 +107,8 @@
     <string name="tube_subscribe">Suscribirse</string>
     <string name="tube_subscribed">Suscrito</string>
     <string name="tube_description">Descripción</string>
-    <string name="tube_show_more">Mostrar más</string>
     <string name="tube_show_less">Mostrar menos</string>
     <string name="tube_comments">Comentarios</string>
-    <string name="tube_comments_off">Los comentarios están desactivados.</string>
     <string name="tube_comments_none">Aún no hay comentarios.</string>
     <string name="tube_comments_error">No se pudieron cargar los comentarios.</string>
     <string name="tube_pinned">Fijado</string>
@@ -127,7 +119,6 @@
     <string name="tube_minimize">Minimizar</string>
     <string name="tube_quality_now">%dp</string>
     <string name="tube_details_error">No se pudieron cargar los detalles.</string>
-    <string name="tube_age_limit">+%d</string>
 
     <string name="tube_menu_later">Guardar en Ver después</string>
     <string name="tube_menu_later_remove">Quitar de Ver después</string>
@@ -144,7 +135,7 @@
     <string name="tube_why_topic">Por «%s»</string>
     <string name="tube_why_trending">Tendencia ahora</string>
 
-    <string name="tube_search_hint">Buscar videos, canales o enlaces</string>
+    <string name="tube_search_hint">Buscar</string>
     <string name="tube_search_recent">Búsquedas recientes</string>
     <string name="tube_filter_all">Todo</string>
     <string name="tube_filter_videos">Videos</string>
@@ -153,7 +144,6 @@
     <string name="tube_search_empty">Sin resultados</string>
     <string name="tube_search_empty_body">Prueba con otras palabras.</string>
     <string name="tube_search_error">No se pudo buscar ahora.</string>
-    <string name="tube_link_unknown">Ese enlace no es de un video, canal o lista de YouTube.</string>
 
     <string name="tube_channel_videos">Videos</string>
     <string name="tube_channel_shorts">Shorts</string>
@@ -164,9 +154,8 @@
     <string name="tube_play_all">Ver</string>
 
     <string name="tube_subs_empty_title">Aún sin suscripciones</string>
-    <string name="tube_subs_empty_body">Suscríbete a canales para ver aquí sus videos nuevos. Todo queda en el teléfono, sin cuenta.</string>
+    <string name="tube_subs_empty_body">Los videos nuevos de tus canales aparecen aquí.</string>
     <string name="tube_subs_manage">Gestionar</string>
-    <string name="tube_subs_latest">Videos nuevos</string>
     <string name="tube_import">Importar de YouTube</string>
     <string name="tube_import_body">Archivo subscriptions.csv de Google Takeout</string>
     <plurals name="tube_import_done">
@@ -191,58 +180,31 @@
     <string name="tube_set_section_look">Apariencia</string>
     <string name="tube_set_section_playback">Reproducción</string>
     <string name="tube_set_section_privacy">Privacidad y feed</string>
-    <string name="tube_set_theme">Tema</string>
     <string name="tube_theme_light">Claro</string>
     <string name="tube_theme_dark">Oscuro</string>
     <string name="tube_theme_system">Sistema</string>
-    <string name="tube_set_accent">Color de acento</string>
     <string name="tube_set_quality">Calidad máxima</string>
-    <string name="tube_set_quality_body">Más calidad usa más datos.</string>
     <string name="tube_set_autoplay">Reproducción automática</string>
-    <string name="tube_set_autoplay_body">El siguiente empieza solo</string>
     <string name="tube_set_background">Reproducir en segundo plano</string>
-    <string name="tube_set_background_body">El sonido sigue con la pantalla apagada</string>
     <string name="tube_set_pip">Ventana flotante</string>
-    <string name="tube_set_pip_body">Una ventanita al salir de la app</string>
     <string name="tube_set_cache">Videos guardados</string>
-    <string name="tube_set_cache_body">Salen del teléfono. Los próximos se vuelven a guardar mientras miras.</string>
+    <string name="tube_set_cache_body">Salen del teléfono.</string>
     <string name="tube_set_history_paused">Pausar historial</string>
-    <string name="tube_set_history_paused_body">El feed deja de aprender</string>
     <string name="tube_set_reset">Restablecer recomendaciones</string>
-    <string name="tube_set_reset_body">El feed olvida los “no me interesa”, los temas elegidos y lo que aprendió.</string>
+    <string name="tube_set_reset_body">El feed empieza de cero.</string>
     <string name="tube_set_reset_done">Recomendaciones restablecidas.</string>
     <string name="tube_set_clear_searches">Borrar búsquedas</string>
     <string name="tube_set_clear_searches_done">Búsquedas borradas.</string>
     <string name="tube_set_about">Acerca de</string>
-    <string name="tube_set_how">Cómo funciona el feed</string>
 
     <!-- 1.2.0: Ajustes, canal, comentários, player -->
     <string name="tube_more_videos">Más videos</string>
     <string name="tube_set_section_storage">Almacenamiento</string>
     <string name="tube_set_version">Versión</string>
-    <string name="tube_set_credits">Lee YouTube con NewPipeExtractor. Sin cuenta, sin anuncios.</string>
     <string name="tube_set_reset_title">¿Restablecer recomendaciones?</string>
     <string name="tube_set_reset_confirm">Restablecer</string>
     <string name="tube_set_cache_title">¿Borrar videos guardados?</string>
     <string name="tube_set_cache_used">%1$s de %2$s</string>
-    <string name="tube_set_cache_hint">Para terminar o volver atrás en un video sin internet.</string>
-    <string name="tube_set_tagline">Tu feed de videos, hecho en tu teléfono.</string>
-    <string name="tube_badge_no_account">Sin cuenta</string>
-    <string name="tube_badge_no_ads">Sin anuncios</string>
-    <string name="tube_badge_local">En el teléfono</string>
-    <string name="tube_how_sub">Todo se calcula en tu teléfono</string>
-    <string name="tube_how_watch_t">Lo que miras</string>
-    <string name="tube_how_watch_b">Cuánto viste de cada video cuenta más que el clic.</string>
-    <string name="tube_how_taste_t">Lo que te gusta y descartas</string>
-    <string name="tube_how_taste_b">Los me gusta traen parecidos; “no me gusta” y los videos dejados al inicio alejan.</string>
-    <string name="tube_how_subs_t">Tus canales</string>
-    <string name="tube_how_subs_b">Los videos nuevos de quien sigues entran primero.</string>
-    <string name="tube_how_new_t">Novedades</string>
-    <string name="tube_how_new_b">Temas parecidos a los tuyos y un poco de lo que es tendencia.</string>
-    <string name="tube_how_mix_t">Variedad</string>
-    <string name="tube_how_mix_b">Como mucho 3 videos del mismo canal por página, sin repetir.</string>
-    <string name="tube_how_local_t">Solo en el teléfono</string>
-    <string name="tube_how_local_b">Nada sale del aparato: sin cuenta y sin historial en YouTube.</string>
     <string name="tube_channel_about">Acerca de</string>
     <string name="tube_more_short">…más</string>
     <string name="tube_figure_likes">me gusta</string>

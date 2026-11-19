@@ -165,7 +165,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                             }
                         }
                     }
-                    if (state.entries.isNotEmpty()) item(key = "foryou") { TubeSectionHeader(title = stringResource(R.string.tube_for_you), modifier = Modifier.padding(top = 6.dp)) }
+                    if (state.entries.isNotEmpty()) item(key = "foryou") { Spacer(Modifier.height(8.dp)) }
                 }
                 feedItems(state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen)
                 when {
@@ -323,8 +323,6 @@ private fun InterestPicker(onDone: (List<String>) -> Unit) {
             Spacer(Modifier.width(12.dp))
             Text(stringResource(R.string.tube_interests_title), style = MaterialTheme.typography.headlineSmall, color = sc.Text)
         }
-        Spacer(Modifier.height(8.dp))
-        Text(stringResource(R.string.tube_interests_body), style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted)
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             topics.forEach { t ->

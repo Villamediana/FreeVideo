@@ -5,7 +5,8 @@
 **Vídeos do YouTube no Android, sem conta, sem anúncio e com um feed que aprende no próprio celular.**
 
 Irmão do [FreeSong](https://github.com/Villamediana/FreeSong): mesmo NewPipeExtractor e a mesma camada de streaming,
-com visual próprio (vermelho brasa, fonte Plus Jakarta Sans, preto de cinema no tema escuro).
+com visual próprio: papel (fundo off-white e tinta marrom, carvão quente no tema escuro, destaque azul de
+caneta), fonte Plus Jakarta Sans e pouco texto.
 
 </div>
 

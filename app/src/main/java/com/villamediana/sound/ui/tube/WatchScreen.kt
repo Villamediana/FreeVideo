@@ -630,7 +630,7 @@ private fun Stage(
                                     Text(
                                         stringResource(R.string.tube_live),
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = Color.White,
+                                        color = sc.OnAccent,
                                         modifier = Modifier.padding(start = 4.dp).clip(RoundedCornerShape(5.dp)).background(sc.Accent).padding(horizontal = 6.dp, vertical = 2.dp),
                                     )
                                 } else {

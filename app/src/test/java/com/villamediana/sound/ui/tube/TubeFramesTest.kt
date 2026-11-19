@@ -85,7 +85,7 @@ class TubeFramesTest {
                 .build(),
         )
         val theme = if (System.getenv("FRAMES_THEME") == "light") ThemeMode.LIGHT else ThemeMode.DARK
-        rule.setContent { SoundTheme(mode = theme, accent = "ember") { TubeRoot(MutableStateFlow<Inbound?>(null)) } }
+        rule.setContent { SoundTheme(mode = theme, accent = "ink") { TubeRoot(MutableStateFlow<Inbound?>(null)) } }
         settle(9_000)
         shot("01-home")
         rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.25f, durationMillis = 400) }

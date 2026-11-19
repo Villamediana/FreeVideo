@@ -302,13 +302,13 @@ fun LibraryScreen() {
         }
         item(key = "rows") {
             Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(22.dp)).background(sc.Surface1)) {
-                LibraryRow(Icons.Rounded.History, stringResource(R.string.tube_history), TubeFormat.videoCount(res, history.size.toLong()), onClick = { nav.openList(VideoLists.HISTORY) }, tint = LibraryTint.History)
+                LibraryRow(Icons.Rounded.History, stringResource(R.string.tube_history), history.size.toString(), onClick = { nav.openList(VideoLists.HISTORY) }, tint = LibraryTint.History, countOnly = true)
                 LibraryDivider()
-                LibraryRow(Icons.Rounded.Schedule, stringResource(R.string.tube_later), TubeFormat.videoCount(res, later.size.toLong()), onClick = { nav.openList(VideoLists.LATER) }, tint = LibraryTint.Later)
+                LibraryRow(Icons.Rounded.Schedule, stringResource(R.string.tube_later), later.size.toString(), onClick = { nav.openList(VideoLists.LATER) }, tint = LibraryTint.Later, countOnly = true)
                 LibraryDivider()
-                LibraryRow(Icons.Rounded.ThumbUp, stringResource(R.string.tube_liked_videos), TubeFormat.videoCount(res, liked.size.toLong()), onClick = { nav.openList(VideoLists.LIKED) }, tint = LibraryTint.Liked)
+                LibraryRow(Icons.Rounded.ThumbUp, stringResource(R.string.tube_liked_videos), liked.size.toString(), onClick = { nav.openList(VideoLists.LIKED) }, tint = LibraryTint.Liked, countOnly = true)
                 LibraryDivider()
-                LibraryRow(Icons.Rounded.Subscriptions, stringResource(R.string.tube_your_subs), subs.size.toString(), onClick = nav::openSubscriptionList, tint = LibraryTint.Subs)
+                LibraryRow(Icons.Rounded.Subscriptions, stringResource(R.string.tube_your_subs), subs.size.toString(), onClick = nav::openSubscriptionList, tint = LibraryTint.Subs, countOnly = true)
             }
         }
     }
@@ -316,11 +316,11 @@ fun LibraryScreen() {
 }
 
 private object LibraryTint {
-    val History = androidx.compose.ui.graphics.Color(0xFF2FA8FF)
-    val Later = androidx.compose.ui.graphics.Color(0xFFFF9F2E)
-    val Liked = androidx.compose.ui.graphics.Color(0xFFFF4D62)
-    val Subs = androidx.compose.ui.graphics.Color(0xFFB65CFF)
-    val Import = androidx.compose.ui.graphics.Color(0xFF20B47A)
+    val History get() = com.villamediana.sound.ui.theme.Pastel.Sky
+    val Later get() = com.villamediana.sound.ui.theme.Pastel.Honey
+    val Liked get() = com.villamediana.sound.ui.theme.Pastel.Coral
+    val Subs get() = com.villamediana.sound.ui.theme.Pastel.Lilac
+    val Import get() = com.villamediana.sound.ui.theme.Pastel.Sage
 }
 
 @Composable
@@ -329,7 +329,7 @@ private fun LibraryDivider() {
 }
 
 @Composable
-internal fun LibraryRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color = sc.Accent) {
+internal fun LibraryRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color = sc.Accent, countOnly: Boolean = false) {
     Row(
         Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -338,8 +338,10 @@ internal fun LibraryRow(icon: ImageVector, title: String, subtitle: String?, onC
         Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = sc.Text, maxLines = 1)
-            if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
+            if (!subtitle.isNullOrBlank() && !countOnly) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
         }
+        // A count says itself on the right ("12"), no words.
+        if (countOnly && !subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted)
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = sc.TextFaint)
     }
 }
