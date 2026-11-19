@@ -101,9 +101,9 @@ private object NoProgress : VideoProgress {
  */
 @OptIn(UnstableApi::class)
 @Composable
-internal fun rememberVideoProgress(player: Player?): VideoProgress {
+internal fun rememberVideoProgress(player: Player?, tickMs: Long = TICK_MS): VideoProgress {
     if (player == null) return NoProgress
-    val state = rememberProgressStateWithTickInterval(player, tickIntervalMs = TICK_MS)
+    val state = rememberProgressStateWithTickInterval(player, tickIntervalMs = tickMs)
     return remember(state) {
         object : VideoProgress {
             override val positionMs: Long get() = state.currentPositionMs

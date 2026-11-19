@@ -105,7 +105,7 @@ class TubePlayer(
     private val streams = StreamUrlCache<String, TubeStream>(scope, urlOf = { it.videoUrl }) { id, previous ->
         // A second resolution means the urls were refused or expired: extract again, not from memory.
         // …asking for the same files first, so the new urls carry on the very same bytes.
-        source.stream(id, prefs.maxHeight, fresh = previous != null, keep = previous)
+        source.stream(id, Battery.maxHeight(context, prefs.maxHeight), fresh = previous != null, keep = previous)
     }
 
     /**
@@ -148,19 +148,40 @@ class TubePlayer(
     /** The feed source that brought the video playing (its watch time is credited to it); null = not from the feed. */
     private var fromSource: String? = null
 
+    /**
+     * Counts the time played, and notes it to the history every [FLUSH_EVERY_S] s — only while the
+     * video plays (a paused video wakes nothing up).
+     */
     private fun startTicking() {
         tickJob?.cancel()
+        tickJob = null
+        if (exo?.isPlaying == true) resumeTicking()
+    }
+
+    private fun resumeTicking() {
+        if (tickJob?.isActive == true) return
         lastTick = SystemClock.elapsedRealtime()
         tickJob = main.launch {
-            var n = 0
             while (isActive) {
-                delay(1_000)
-                val now = SystemClock.elapsedRealtime()
-                if (exo?.isPlaying == true) pendingMs += now - lastTick
-                lastTick = now
-                if (++n % FLUSH_EVERY_S == 0) flush()
+                delay(FLUSH_EVERY_S * 1_000L)
+                countPlayed()
+                flush()
             }
         }
+    }
+
+    /** Stops counting (paused): what was played until now goes to [pendingMs]. */
+    private fun pauseTicking() {
+        if (tickJob?.isActive != true) return
+        countPlayed()
+        tickJob?.cancel()
+        tickJob = null
+    }
+
+    private fun countPlayed() {
+        val now = SystemClock.elapsedRealtime()
+        pendingMs += (now - lastTick).coerceAtLeast(0)
+        lastTick = now
     }
 
     /** Writes what was watched to the history (skipped while the history is paused). */
@@ -198,6 +219,7 @@ class TubePlayer(
                 _state.value = current.copy(video = merge(current.video, video))
                 return@launch
             }
+            pauseTicking()
             flush()
             cancelCountdown()
             pendingMs = 0
@@ -258,8 +280,52 @@ class TubePlayer(
             player.prepare()
             player.playWhenReady = true
             // The rest of the video goes to the disk cache while it plays (all of it on Wi-Fi, a stretch on mobile data).
-            if (stream.hlsUrl == null) prefetcher.start(video.id, stream)
+            nowPlaying = video.id to stream
+            if (stream.hlsUrl == null) prefetcher.start(video.id, stream, withVideo = !background, fromMs = startAtMs, durationMs = video.durationMs)
         }
+    }
+
+    /** What plays now (for the prefetch to start again when the picture is wanted or not). */
+    private var nowPlaying: Pair<String, TubeStream>? = null
+
+    /** Nobody sees the picture (screen off, another app): only the sound is read, decoded and fetched. */
+    private var background = false
+
+    /**
+     * The app left the screen with the video going on (and no floating window): the video track is
+     * switched off — no picture downloaded or decoded — and the sound may go to the phone's audio chip
+     * (offload: the processor sleeps while it plays). Back on screen, the picture comes back where it is.
+     */
+    fun setBackground(on: Boolean) {
+        main.launch {
+            if (background == on) return@launch
+            background = on
+            exo?.let { applyBackground(it) }
+            val (id, stream) = nowPlaying ?: return@launch
+            val p = exo
+            if (_state.value.video?.id == id && stream.hlsUrl == null) {
+                prefetcher.start(id, stream, withVideo = !on, fromMs = p?.currentPosition ?: 0, durationMs = p?.duration?.takeIf { it > 0 } ?: _state.value.video?.durationMs ?: 0)
+            }
+        }
+    }
+
+    private fun applyBackground(player: ExoPlayer) {
+        // Wake and Wi-Fi locks only off screen (with the screen on the phone stays awake by itself;
+        // during offload the player lets go of them while the audio chip plays).
+        player.setWakeMode(if (background) C.WAKE_MODE_NETWORK else C.WAKE_MODE_NONE)
+        player.trackSelectionParameters = player.trackSelectionParameters.buildUpon()
+            .setTrackTypeDisabled(C.TRACK_TYPE_VIDEO, background)
+            .setAudioOffloadPreferences(
+                androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.Builder()
+                    .setAudioOffloadMode(
+                        if (background) androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_ENABLED
+                        else androidx.media3.common.TrackSelectionParameters.AudioOffloadPreferences.AUDIO_OFFLOAD_MODE_DISABLED,
+                    )
+                    .setIsGaplessSupportRequired(false)
+                    .setIsSpeedChangeSupportRequired(false)
+                    .build(),
+            )
+            .build()
     }
 
     fun togglePlayPause() {
@@ -354,6 +420,7 @@ class TubePlayer(
     /** Closes everything (the mini player's ×). */
     fun close() {
         main.launch {
+            pauseTicking()
             flush()
             cancelCountdown()
             loadJob?.cancel()
@@ -363,6 +430,7 @@ class TubePlayer(
             _player.value = null
             _state.value = State()
             prefetcher.stop()
+            nowPlaying = null
             player?.release()
             TubePlaybackService.stop(context)
         }
@@ -386,13 +454,14 @@ class TubePlayer(
             /* handleAudioFocus = */ true,
         )
         .setHandleAudioBecomingNoisy(true)
-        .setWakeMode(C.WAKE_MODE_NETWORK)
+        .setWakeMode(if (background) C.WAKE_MODE_NETWORK else C.WAKE_MODE_NONE)
         .setSeekBackIncrementMs(10_000)
         .setSeekForwardIncrementMs(10_000)
         .build()
         .apply {
             videoScalingMode = C.VIDEO_SCALING_MODE_SCALE_TO_FIT
             addListener(Events(this))
+            if (background) applyBackground(this)
         }
 
     private fun metadata(video: VideoItem): MediaMetadata = MediaMetadata.Builder()
@@ -456,7 +525,12 @@ class TubePlayer(
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             if (!current) return
             _state.value = _state.value.copy(playing = isPlaying, error = if (isPlaying) null else _state.value.error)
-            if (!isPlaying) flush()
+            if (isPlaying) {
+                resumeTicking()
+            } else {
+                pauseTicking()
+                flush()
+            }
         }
 
         override fun onPlaybackStateChanged(playbackState: Int) {

@@ -25,7 +25,12 @@ com visual próprio (vermelho brasa, fonte Plus Jakarta Sans, preto de cinema no
   mostra "A seguir". Retoma de onde parou, próximo automático, mini player enquanto navega, janela flutuante,
   ao vivo (HLS) e **segundo plano** com controles na notificação.
 - **Vídeos guardados**: o que você assiste fica num cache de 1,5 GB, identificado pelo arquivo exato do
-  YouTube (formato, versão e tamanho), então pedaços de arquivos diferentes nunca se misturam.
+  YouTube (formato, versão e tamanho), então pedaços de arquivos diferentes nunca se misturam. À frente de
+  onde você está, ~20 min no Wi-Fi e ~8 min nos dados móveis.
+- **Bateria**: com a tela apagada (ou em outro app) só o som é baixado e decodificado, e pode ir para o
+  chip de áudio do celular (offload) com o processador dormindo; travas de Wi-Fi/CPU só fora da tela; nada
+  acorda com o vídeo pausado; com a economia de bateria do Android, no máximo 480p e menos dados à frente;
+  AV1 (decodificado no processador na maioria dos celulares) fica por último.
 - **Comentários** com respostas que abrem no próprio comentário; **canais** com banner, abas e Shorts em grade.
 - **Inscrições sem conta** (ficam no celular; os vídeos novos vêm do RSS dos canais) e importação do
   Google Takeout (`subscriptions.csv`).
@@ -56,7 +61,6 @@ SOUND_LIVE=1 ./gradlew :app:testDebugUnitTest --tests 'com.villamediana.sound.tu
 ```
 
 Versões: `tools/release.sh -n "notas"` publica no GitHub do FreeVideo, e o app se atualiza sozinho.
-Ícones: `tools/freevideo_brand.py app/src/main/res` (Pillow).
 
 ---
 

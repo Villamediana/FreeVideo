@@ -23,6 +23,8 @@ internal object VideoStreams {
         val isH264: Boolean get() = codec?.startsWith("avc1", ignoreCase = true) == true ||
             (codec.isNullOrBlank() && mimeType == MP4)
         val isMp4: Boolean get() = mimeType == MP4
+        /** AV1: most phones decode it in software (hot and hungry), so it comes last. */
+        val isAv1: Boolean get() = codec?.startsWith("av01", ignoreCase = true) == true
         /** "720p" means the short side: a vertical 720×1280 video is 720p too. */
         val size: Int get() = if (width > 0 && height > 0) minOf(width, height) else height
     }
@@ -32,7 +34,7 @@ internal object VideoStreams {
     /**
      * 1. the best H.264 MP4 video-only stream up to [maxHeight] + the audio stream (merged by the player);
      * 2. a muxed stream up to [maxHeight] (it carries its own audio);
-     * 3. any other video-only stream up to [maxHeight] (VP9/AV1) + audio;
+     * 3. any other video-only stream up to [maxHeight] (VP9 before AV1, which phones mostly decode in software) + audio;
      * 4. the smallest H.264 / muxed stream above [maxHeight] — something is better than nothing.
      *
      * Heights are the short side ("720p" also for a vertical video). At the same size, 30 fps wins
@@ -50,7 +52,7 @@ internal object VideoStreams {
         }
         muxed.filter { it.size in 1..cap }.maxWithOrNull(better)?.let { return single(it) }
         if (withAudio != null) {
-            videoOnly.filter { it.size in 1..cap }.maxWithOrNull(compareBy<Video>({ if (it.isMp4) 1 else 0 }).then(better))
+            videoOnly.filter { it.size in 1..cap }.maxWithOrNull(compareBy<Video>({ if (it.isAv1) 0 else 1 }, { if (it.isMp4) 1 else 0 }).then(better))
                 ?.let { return merged(it, withAudio) }
             videoOnly.filter { it.isH264 && it.isMp4 }.minWithOrNull(smaller)?.let { return merged(it, withAudio) }
         }

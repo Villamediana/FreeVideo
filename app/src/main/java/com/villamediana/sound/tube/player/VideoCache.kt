@@ -23,6 +23,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.io.File
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /**
  * The videos played lately, on disk ([BYTES], least recently played go first). Keyed by video, part
@@ -85,9 +86,10 @@ internal object VideoCache {
 }
 
 /**
- * Fetches the video playing into [VideoCache] ahead of the player, from the start (what's already
- * there is skipped at once): on Wi-Fi the whole video, on mobile data a stretch ([METERED_BYTES]).
- * The player then reads from disk: the end of the video plays, and seeking works, with no network.
+ * Fetches the video playing into [VideoCache] ahead of the player, from about where it plays (what's
+ * already there is skipped at once): on Wi-Fi a long stretch ([WIFI_BYTES]), on mobile data or with
+ * the battery saver on a shorter one ([METERED_BYTES]). The player then reads from disk: the video
+ * goes on, and seeking back works, with no network. Without the picture (screen off), only the sound.
  * One video at a time; a new one (or closing) stops the previous fetch.
  */
 @OptIn(UnstableApi::class)
@@ -96,19 +98,28 @@ internal class Prefetcher(private val context: Context, private val resolver: Ch
     private var job: Job? = null
     @Volatile private var writers: List<CacheWriter> = emptyList()
 
-    fun start(id: String, stream: TubeStream) {
+    /** [withVideo] false: the sound only. [fromMs] of [durationMs]: where the fetch starts (a little before). */
+    fun start(id: String, stream: TubeStream, withVideo: Boolean = true, fromMs: Long = 0, durationMs: Long = 0) {
         stop()
-        val unmetered = isUnmetered()
+        val long = Battery.unmetered(context) && !Battery.saving(context)
         job = scope.launch {
             // Let the player have the connection while it starts; then fetch the rest.
             kotlinx.coroutines.delay(START_DELAY_MS)
             val cache = VideoCache.get(context)
             val parts = buildList {
-                add(StreamUris.VIDEO_PART)
+                // Audio first: it is small, and with it the video can at least be heard to the end.
                 if (stream.audioUrl != null) add(StreamUris.AUDIO_PART)
+                if (withVideo) add(StreamUris.VIDEO_PART)
             }
-            // Audio first: it is small, and with it the video can at least be heard to the end.
-            for (part in parts.reversed()) {
+            for (part in parts) {
+                val url = if (part == StreamUris.AUDIO_PART) stream.audioUrl else stream.videoUrl
+                val size = PrefetchPlan.sizeOf(url)
+                val start = PrefetchPlan.startByte(size, fromMs, durationMs)
+                val budget = when {
+                    part == StreamUris.AUDIO_PART -> AUDIO_BYTES
+                    long -> WIFI_BYTES
+                    else -> METERED_BYTES
+                }
                 val source = CacheDataSource.Factory()
                     .setCache(cache)
                     .setUpstreamDataSourceFactory(ChunkedHttpDataSource.Factory(StreamDataSources.http(), PREFETCH_CHUNK, resolver))
@@ -116,7 +127,8 @@ internal class Prefetcher(private val context: Context, private val resolver: Ch
                 val spec = DataSpec.Builder()
                     .setUri(VideoCache.uri(id, part, stream))
                     .setKey(VideoCache.key(id, part, stream))
-                    .apply { if (!unmetered && part == StreamUris.VIDEO_PART) setLength(METERED_BYTES) }
+                    .setPosition(start)
+                    .setLength(PrefetchPlan.length(size, start, budget))
                     .build()
                 val writer = CacheWriter(source, spec, null, null)
                 writers = writers + writer
@@ -133,18 +145,53 @@ internal class Prefetcher(private val context: Context, private val resolver: Ch
         job = null
     }
 
-    private fun isUnmetered(): Boolean {
+    private companion object {
+        /** ~20 minutes of 720p: rides out a dead zone, without fetching hours nobody watches. */
+        const val WIFI_BYTES = 250L * 1024 * 1024
+        /** ~8 minutes of 720p. */
+        const val METERED_BYTES = 40L * 1024 * 1024
+        /** ~30 minutes of sound. */
+        const val AUDIO_BYTES = 30L * 1024 * 1024
+        const val PREFETCH_CHUNK = 4L * 1024 * 1024
+        const val START_DELAY_MS = 6_000L
+    }
+}
+
+/** Which bytes to fetch ahead: pure, so it is tested without a network. */
+internal object PrefetchPlan {
+    /** Bytes kept before where it plays (the player may step back a little to a key frame). */
+    const val BEHIND = 2L * 1024 * 1024
+
+    /** The file's size, from its googlevideo url (`clen`); -1 when unknown. */
+    fun sizeOf(url: String?): Long = url?.toHttpUrlOrNull()?.queryParameter("clen")?.toLongOrNull()?.takeIf { it > 0 } ?: -1
+
+    /** Where to start for [fromMs] of [durationMs] in a file of [size] bytes (0 when anything is unknown). */
+    fun startByte(size: Long, fromMs: Long, durationMs: Long): Long {
+        if (size <= 0 || durationMs <= 0 || fromMs <= 0) return 0
+        val at = (size.toDouble() * (fromMs.toDouble() / durationMs).coerceIn(0.0, 1.0)).toLong()
+        return (at - BEHIND).coerceIn(0, size - 1)
+    }
+
+    /** How many bytes from [start]: at most [budget], never past the end when the size is known. */
+    fun length(size: Long, start: Long, budget: Long): Long = if (size > 0) minOf(budget, (size - start).coerceAtLeast(1)) else budget
+}
+
+/** The phone's battery and network, as the player sees them. */
+internal object Battery {
+    /** Battery saver on: lighter video (at most 480p) and shorter fetches ahead. */
+    fun saving(context: Context): Boolean =
+        runCatching { context.getSystemService(android.os.PowerManager::class.java)?.isPowerSaveMode == true }.getOrDefault(false)
+
+    /** The quality to ask for: the setting, capped at 480p while the battery saver is on. */
+    fun maxHeight(context: Context, setting: Int): Int = if (saving(context)) minOf(setting, SAVER_HEIGHT) else setting
+
+    fun unmetered(context: Context): Boolean {
         val cm = context.getSystemService(ConnectivityManager::class.java) ?: return false
         val caps = cm.activeNetwork?.let { cm.getNetworkCapabilities(it) } ?: return false
         return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
     }
 
-    private companion object {
-        /** ~8 minutes of 720p: enough to ride out a tunnel or a dead zone. */
-        const val METERED_BYTES = 40L * 1024 * 1024
-        const val PREFETCH_CHUNK = 4L * 1024 * 1024
-        const val START_DELAY_MS = 6_000L
-    }
+    const val SAVER_HEIGHT = 480
 }
 
 /**

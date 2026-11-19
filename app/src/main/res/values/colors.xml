@@ -3,6 +3,6 @@
     <color name="ink">#FFFFFF</color>
     <color name="accent">#E8304A</color>
     <color name="royal">#2341C9</color>
-    <!-- Splash: always the cinema dark, whatever the theme (the logo is the ember tile) -->
-    <color name="splash_ink">#0B0B0E</color>
+    <!-- Splash: always the dark ink (the logo is graphite), whatever the theme -->
+    <color name="splash_ink">#0E0F14</color>
 </resources>

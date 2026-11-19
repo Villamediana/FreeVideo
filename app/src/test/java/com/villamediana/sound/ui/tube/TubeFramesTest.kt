@@ -158,8 +158,11 @@ class TubeFramesTest {
                 settle(3_000)
                 shot("09d-replies")
             }
-            rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performClick()
-            settle(800)
+            // The sheet opens only when the comments arrived (live data): close it if it's there.
+            if (rule.onAllNodesWithContentDescription(str(R.string.tube_close)).fetchSemanticsNodes().isNotEmpty()) {
+                rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performClick()
+                settle(800)
+            }
         }
         rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).fetchSemanticsNodes().firstOrNull() ?: rule.onRoot().performClick()
         settle(600)

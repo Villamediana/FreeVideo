@@ -145,7 +145,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     val inPip = rememberPipMode(activity, tube.player)
     PipParams(activity, pState, pipEnabled)
     // A floating window is "in the background" too, but the video must go on in it.
-    PauseInBackground(tube.player, keepPlaying = background || inPip || (pipEnabled && android.os.Build.VERSION.SDK_INT >= 26))
+    PauseInBackground(tube.player, activity, keepPlaying = background || inPip || (pipEnabled && android.os.Build.VERSION.SDK_INT >= 26))
 
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
     // Search takes the whole page (its keyboard needs the room): no bar under it (the mini player stays).
@@ -240,24 +240,32 @@ private fun Page(color: Color = sc.Ink, content: @Composable () -> Unit) {
 }
 
 /**
- * Without "tocar em segundo plano", the video pauses when the app leaves the screen and picks up
- * again when it comes back (as FreeSong's video does).
+ * Off the screen (another app, screen off): without "tocar em segundo plano" the video pauses and
+ * picks up again when the app comes back; with it, it goes on as sound only — the picture is neither
+ * downloaded nor decoded while nobody sees it (a floating window keeps it, of course).
  */
 @Composable
-private fun PauseInBackground(player: TubePlayer, keepPlaying: Boolean) {
+private fun PauseInBackground(player: TubePlayer, activity: android.app.Activity?, keepPlaying: Boolean) {
     val owner = LocalLifecycleOwner.current
     val keep by rememberUpdatedState(keepPlaying)
     DisposableEffect(owner, player) {
         var pausedByUs = false
         val observer = LifecycleEventObserver { _, event ->
             when (event) {
-                Lifecycle.Event.ON_STOP -> if (!keep && player.state.value.playing) {
-                    player.pause()
-                    pausedByUs = true
+                Lifecycle.Event.ON_STOP -> {
+                    val floating = android.os.Build.VERSION.SDK_INT >= 24 && activity?.isInPictureInPictureMode == true
+                    if (!floating) player.setBackground(true)
+                    if (!keep && player.state.value.playing) {
+                        player.pause()
+                        pausedByUs = true
+                    }
                 }
-                Lifecycle.Event.ON_START -> if (pausedByUs) {
-                    pausedByUs = false
-                    player.play()
+                Lifecycle.Event.ON_START -> {
+                    player.setBackground(false)
+                    if (pausedByUs) {
+                        pausedByUs = false
+                        player.play()
+                    }
                 }
                 else -> Unit
             }
@@ -355,7 +363,8 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, i
 private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -> Unit) {
     val video = state.video ?: return
     val exo by player.player.collectAsState()
-    val progress = rememberVideoProgress(exo)
+    // A thin line: once a second is plenty (fewer redraws while browsing).
+    val progress = rememberVideoProgress(exo, tickMs = 1_000)
     val accent = sc.Accent
     val track = sc.Hairline
     val interaction = remember { MutableInteractionSource() }
@@ -372,9 +381,17 @@ private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -
             .clickable(interactionSource = interaction, indication = null, onClick = onOpen),
     ) {
         Row(Modifier.fillMaxSize().padding(start = 6.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.height(MINI_HEIGHT - 12.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Color.Black)) {
-                // The video itself when it has a picture; its thumbnail until then.
+            Box(Modifier.height(MINI_HEIGHT - 12.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Color.Black), contentAlignment = Alignment.Center) {
+                // The video itself (the phone decodes it anyway while it plays); its thumbnail until the first frame.
                 AsyncImage(model = video.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                val p = exo
+                if (p != null && !LocalInPip.current) {
+                    val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
+                    Box(Modifier.aspectRatio(ratio)) {
+                        // A texture (not a SurfaceView): it follows the card's rounded corners.
+                        androidx.media3.ui.compose.PlayerSurface(player = p, modifier = Modifier.fillMaxSize(), surfaceType = androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW)
+                    }
+                }
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {

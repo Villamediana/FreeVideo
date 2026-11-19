@@ -76,4 +76,30 @@ class StreamFilesTest {
         assertTrue(fileChanged(wrapped))
         assertTrue(!fileChanged(java.io.IOException("other")))
     }
+
+    @Test
+    fun theFetchAheadStartsNearWhereItPlaysAndHasABudget() {
+        val url = "https://rr1---sn-a.googlevideo.com/videoplayback?itag=136&clen=100000000&lmt=1"
+        val size = PrefetchPlan.sizeOf(url)
+        assertEquals(100_000_000L, size)
+        // From the start: byte 0. Halfway through: half the file, a little before.
+        assertEquals(0L, PrefetchPlan.startByte(size, 0, 600_000))
+        assertEquals(50_000_000L - PrefetchPlan.BEHIND, PrefetchPlan.startByte(size, 300_000, 600_000))
+        // Unknown length or size: from the start.
+        assertEquals(0L, PrefetchPlan.startByte(-1, 300_000, 600_000))
+        assertEquals(0L, PrefetchPlan.startByte(size, 300_000, 0))
+        // Never past the end, never more than the budget.
+        assertEquals(10_000_000L, PrefetchPlan.length(size, 90_000_000, 40_000_000))
+        assertEquals(40_000_000L, PrefetchPlan.length(size, 0, 40_000_000))
+        assertEquals(40_000_000L, PrefetchPlan.length(-1, 0, 40_000_000))
+        assertEquals(-1L, PrefetchPlan.sizeOf("https://example.com/v.mp4"))
+    }
+
+    @Test
+    fun withoutH264Vp9ComesBeforeAv1() {
+        fun v(codec: String, mime: String) = com.villamediana.sound.online.VideoStreams.Video("https://v/$codec", 1280, 720, 30, codec, mime, 1_000_000)
+        val audio = com.villamediana.sound.online.AudioStream("https://a", "audio/mp4", "m4a", 128_000, null, "mp4a.40.2")
+        val picked = com.villamediana.sound.online.VideoStreams.pick(listOf(v("av01.0.05M.08", "video/mp4"), v("vp9", "video/webm")), emptyList(), audio, 720)
+        assertEquals("https://v/vp9", picked!!.videoUrl)
+    }
 }
