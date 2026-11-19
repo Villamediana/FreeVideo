@@ -25,7 +25,6 @@ import com.villamediana.sound.online.onlineKind
 import com.villamediana.sound.playback.stream.ChunkedHttpDataSource
 import com.villamediana.sound.playback.stream.StreamDataSources
 import com.villamediana.sound.playback.stream.StreamErrors
-import com.villamediana.sound.playback.stream.StreamLoadErrorPolicy
 import com.villamediana.sound.playback.stream.StreamUris
 import com.villamediana.sound.playback.stream.StreamUrlCache
 import com.villamediana.sound.playback.stream.resolveBlocking
@@ -33,6 +32,7 @@ import com.villamediana.sound.tube.data.TubeLibrary
 import com.villamediana.sound.tube.data.TubePrefs
 import com.villamediana.sound.tube.data.TubeSettings
 import com.villamediana.sound.tube.online.TubeSource
+import com.villamediana.sound.tube.online.StreamTag
 import com.villamediana.sound.tube.online.TubeStream
 import com.villamediana.sound.tube.online.VideoItem
 import kotlinx.coroutines.CoroutineScope
@@ -104,14 +104,26 @@ class TubePlayer(
 
     private val streams = StreamUrlCache<String, TubeStream>(scope, urlOf = { it.videoUrl }) { id, previous ->
         // A second resolution means the urls were refused or expired: extract again, not from memory.
-        source.stream(id, prefs.maxHeight, fresh = previous != null)
+        // …asking for the same files first, so the new urls carry on the very same bytes.
+        source.stream(id, prefs.maxHeight, fresh = previous != null, keep = previous)
     }
 
+    /**
+     * Placeholder → googlevideo url. A part's uri names its file ([VideoCache.FILE]); if the urls known
+     * now serve another one, nothing is read ([FileChangedException]) and the player restarts the video
+     * with the new file from the same second: ranges of two files are never spliced.
+     */
     private val resolver = ChunkedHttpDataSource.UriResolver { uri, refresh ->
         val (id, part) = StreamUris.videoPart(uri) ?: return@UriResolver uri
         val stream = resolveBlocking { streams.get(id, refresh) }
-        Uri.parse(if (part == StreamUris.AUDIO_PART) stream.audioUrl ?: stream.videoUrl else stream.videoUrl)
+        val url = if (part == StreamUris.AUDIO_PART) stream.audioUrl ?: stream.videoUrl else stream.videoUrl
+        val wanted = VideoCache.wanted(uri)
+        if (wanted != null && StreamTag.of(url) != wanted) throw FileChangedException(id)
+        Uri.parse(url)
     }
+
+    /** When the player last started over because the file changed (at most once in a while: no loops). */
+    private var restartedAt = 0L
 
     /**
      * Reads through the video cache on disk: what was played (and what [Prefetcher] fetched ahead) is
@@ -120,7 +132,7 @@ class TubePlayer(
      */
     private val progressive by lazy {
         ProgressiveMediaSource.Factory(StreamDataSources.factory(context, resolver, VideoCache.get(context), VIDEO_CHUNK))
-            .setLoadErrorHandlingPolicy(StreamLoadErrorPolicy())
+            .setLoadErrorHandlingPolicy(TubeLoadErrorPolicy())
     }
 
     private val prefetcher by lazy { Prefetcher(context, resolver) }
@@ -397,7 +409,7 @@ class TubePlayer(
         }
         val videoSource = progressive.createMediaSource(
             MediaItem.Builder()
-                .setUri(StreamUris.video(video.id, StreamUris.VIDEO_PART))
+                .setUri(VideoCache.uri(video.id, StreamUris.VIDEO_PART, stream))
                 .setMediaId(video.id)
                 .setCustomCacheKey(VideoCache.key(video.id, StreamUris.VIDEO_PART, stream))
                 .setMimeType(stream.videoMimeType.ifBlank { null })
@@ -407,7 +419,7 @@ class TubePlayer(
         if (stream.audioUrl == null) return videoSource
         val audioSource = progressive.createMediaSource(
             MediaItem.Builder()
-                .setUri(StreamUris.video(video.id, StreamUris.AUDIO_PART))
+                .setUri(VideoCache.uri(video.id, StreamUris.AUDIO_PART, stream))
                 .setCustomCacheKey(VideoCache.key(video.id, StreamUris.AUDIO_PART, stream))
                 .setMimeType(stream.audioMimeType?.ifBlank { null })
                 .build(),
@@ -465,6 +477,14 @@ class TubePlayer(
 
         override fun onPlayerError(error: PlaybackException) {
             if (!current) return
+            val video = _state.value.video
+            val now = SystemClock.elapsedRealtime()
+            if (video != null && fileChanged(error) && now - restartedAt > RESTART_GAP_MS) {
+                // The urls now serve another file: the same second, read from the new one.
+                restartedAt = now
+                load(player, video, player.currentPosition.coerceAtLeast(0))
+                return
+            }
             fail(message(StreamErrors.kindOf(error.errorCode)))
         }
     }
@@ -494,6 +514,7 @@ class TubePlayer(
 
     companion object {
         const val AUTOPLAY_SECONDS = 5
+        private const val RESTART_GAP_MS = 20_000L
         private const val VIDEO_CHUNK = 4L * 1024 * 1024
         private const val FLUSH_EVERY_S = 10
     }

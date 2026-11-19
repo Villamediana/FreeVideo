@@ -85,7 +85,7 @@ class TubeFramesTest {
                 .build(),
         )
         val theme = if (System.getenv("FRAMES_THEME") == "light") ThemeMode.LIGHT else ThemeMode.DARK
-        rule.setContent { SoundTheme(mode = theme, accent = "purple") { TubeRoot(MutableStateFlow<Inbound?>(null)) } }
+        rule.setContent { SoundTheme(mode = theme, accent = "ember") { TubeRoot(MutableStateFlow<Inbound?>(null)) } }
         settle(9_000)
         shot("01-home")
         rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.25f, durationMillis = 400) }
@@ -103,6 +103,12 @@ class TubeFramesTest {
         rule.onAllNodesWithContentDescription(str(R.string.tube_settings)).onFirst().performClick()
         settle(1_500)
         shot("05-settings")
+        rule.onRoot().performTouchInput { swipeUp(startY = height * 0.85f, endY = height * 0.15f, durationMillis = 300) }
+        settle(800)
+        shot("05b-settings-more")
+        rule.onRoot().performTouchInput { swipeUp(startY = height * 0.85f, endY = height * 0.15f, durationMillis = 300) }
+        settle(800)
+        shot("05c-settings-end")
         rule.onAllNodesWithContentDescription(str(R.string.tube_back)).onFirst().performClick()
         settle(800)
 
@@ -122,6 +128,14 @@ class TubeFramesTest {
         rule.onAllNodesWithText(name).onFirst().performClick()
         settle(7_000)
         shot("08-channel")
+        rule.onRoot().performTouchInput { swipeUp(startY = height * 0.8f, endY = height * 0.2f, durationMillis = 400) }
+        settle(2_500)
+        shot("08b-channel-scrolled")
+        rule.onAllNodesWithText(str(R.string.tube_channel_shorts)).fetchSemanticsNodes().firstOrNull()?.let {
+            rule.onAllNodesWithText(str(R.string.tube_channel_shorts)).onFirst().performClick()
+            settle(5_000)
+            shot("08c-channel-shorts")
+        }
         rule.onAllNodesWithContentDescription(str(R.string.tube_back)).onFirst().performClick()
         settle(600)
         rule.onAllNodesWithContentDescription(str(R.string.tube_back)).onFirst().performClick()
@@ -132,6 +146,21 @@ class TubeFramesTest {
         rule.onAllNodesWithText(title).onFirst().performClick()
         settle(7_000)
         shot("09-watch")
+        rule.onRoot().performTouchInput { swipeUp(startY = height * 0.9f, endY = height * 0.55f, durationMillis = 300) }
+        settle(1_000)
+        shot("09b-watch-scrolled")
+        rule.onAllNodesWithText(str(R.string.tube_comments)).fetchSemanticsNodes().firstOrNull()?.let {
+            rule.onAllNodesWithText(str(R.string.tube_comments)).onFirst().performClick()
+            settle(2_500)
+            shot("09c-comments")
+            if (rule.onAllNodesWithText("resposta", substring = true).fetchSemanticsNodes().isNotEmpty()) {
+                rule.onAllNodesWithText("resposta", substring = true).onFirst().performClick()
+                settle(3_000)
+                shot("09d-replies")
+            }
+            rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performClick()
+            settle(800)
+        }
         rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).fetchSemanticsNodes().firstOrNull() ?: rule.onRoot().performClick()
         settle(600)
         rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).onFirst().performClick()

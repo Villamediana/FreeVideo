@@ -1,6 +1,7 @@
 package com.villamediana.sound.tube.online
 
 import kotlinx.serialization.Serializable
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** One video as lists show it (feed, search, related, channel). Unknown numbers are 0 / -1 / null. */
 @Serializable
@@ -65,7 +66,7 @@ sealed interface SearchResult {
 enum class SearchKind { ALL, VIDEOS, CHANNELS, PLAYLISTS }
 
 /** A page of results and what continues it (null = the end). */
-data class TubePage<T>(val items: List<T>, val cursor: Any? = null) {
+data class TubePage<T>(val items: List<T>, val cursor: Any? = null, /** All there is (comments), -1 = unknown. */ val total: Long = -1) {
     val hasMore: Boolean get() = cursor != null
 }
 
@@ -93,6 +94,9 @@ data class CommentItem(
     val pinned: Boolean,
     val hearted: Boolean,
     val byUploader: Boolean,
+    val verified: Boolean = false,
+    /** Where its replies are read from (the source's own business); null = none. */
+    val repliesCursor: Any? = null,
 )
 
 enum class ChannelTabKind { VIDEOS, SHORTS, LIVE, PLAYLISTS }
@@ -122,7 +126,34 @@ data class TubeStream(
     val width: Int,
     val height: Int,
     val hlsUrl: String? = null,
-)
+) {
+    /** Which exact file the video url serves (format, version, size): see [StreamTag]. */
+    val videoTag: String? get() = StreamTag.of(videoUrl)
+
+    /** Which exact file the audio url serves; null when the video carries its own sound. */
+    val audioTag: String? get() = audioUrl?.let(StreamTag::of)
+}
+
+/**
+ * The identity of the bytes a googlevideo url serves: format (`itag`), file version (`lmt`), size
+ * (`clen`) and variant (`xtags`: a dubbed audio track, for one). Two urls with the same tag serve the
+ * same file byte for byte, so ranges of one can follow ranges of the other; with different tags they
+ * can't, even at the same resolution and codec (mixing them shows as blocks in the picture).
+ * Null for urls that don't say (not googlevideo).
+ */
+object StreamTag {
+    fun of(url: String?): String? {
+        val u = url?.toHttpUrlOrNull() ?: return null
+        val itag = u.queryParameter("itag")?.takeIf { it.isNotBlank() } ?: return null
+        val parts = listOfNotNull(
+            itag,
+            u.queryParameter("lmt")?.takeIf { it.isNotBlank() },
+            u.queryParameter("clen")?.takeIf { it.isNotBlank() },
+            u.queryParameter("xtags")?.takeIf { it.isNotBlank() }?.let { Integer.toHexString(it.hashCode()) },
+        )
+        return parts.joinToString("-")
+    }
+}
 
 /** A YouTube link pasted or shared. */
 sealed interface TubeLink {

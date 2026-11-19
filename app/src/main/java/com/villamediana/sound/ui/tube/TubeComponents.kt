@@ -83,7 +83,7 @@ fun VideoThumb(
         )
         when {
             video.live -> Badge(stringResource(R.string.tube_live), sc.Danger, Color.White, compact)
-            video.durationMs > 0 -> Badge(formatDuration(video.durationMs), Color.Black.copy(alpha = 0.72f), Color.White, compact)
+            video.durationMs > 0 -> Badge(formatDuration(video.durationMs), Color.Black.copy(alpha = 0.78f), Color.White, compact)
         }
         if (progress > 0.01f) {
             Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).background(Color.White.copy(alpha = 0.35f))) {
@@ -97,21 +97,21 @@ fun VideoThumb(
 private fun BoxScope.Badge(text: String, bg: Color, fg: Color, compact: Boolean) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold, fontFeatureSettings = "tnum"),
         color = fg,
         modifier = Modifier
             .align(Alignment.BottomEnd)
             .padding(if (compact) 5.dp else 8.dp)
-            .clip(RoundedCornerShape(6.dp))
+            .clip(RoundedCornerShape(if (compact) 5.dp else 7.dp))
             .background(bg)
-            .padding(horizontal = 5.dp, vertical = 1.dp),
+            .padding(horizontal = if (compact) 5.dp else 6.dp, vertical = if (compact) 1.dp else 2.dp),
     )
 }
 
 /** The channel's picture in a circle (its initial while there is none). */
 @Composable
 fun ChannelAvatar(url: String?, name: String, size: Dp, modifier: Modifier = Modifier) {
-    Box(modifier.size(size).clip(CircleShape).background(sc.Surface2), contentAlignment = Alignment.Center) {
+    Box(modifier.size(size).clip(CircleShape).background(if (sc.isLight) sc.Surface3 else sc.Surface2), contentAlignment = Alignment.Center) {
         val initial = name.trim().removePrefix("@").firstOrNull()?.uppercaseChar()?.toString().orEmpty()
         Text(initial, style = if (size >= 56.dp) MaterialTheme.typography.headlineMedium else MaterialTheme.typography.titleMedium, color = sc.TextMuted)
         if (!url.isNullOrBlank()) {
@@ -145,6 +145,8 @@ fun VideoCard(
     modifier: Modifier = Modifier,
     progress: Float = 0f,
     onChannel: (() -> Unit)? = null,
+    /** False on the channel's own page: no picture, no name (it's theirs). */
+    showChannel: Boolean = true,
 ) {
     val haptic = LocalHapticFeedback.current
     val res = resources()
@@ -165,17 +167,21 @@ fun VideoCard(
         VideoThumb(video, Modifier.fillMaxWidth(), progress = progress)
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.Top) {
-            ChannelAvatar(
-                video.channelAvatar,
-                video.channelName,
-                38.dp,
-                Modifier.then(if (onChannel != null) Modifier.clip(CircleShape).clickable(onClick = onChannel) else Modifier),
-            )
-            Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
+            if (showChannel) {
+                ChannelAvatar(
+                    video.channelAvatar,
+                    video.channelName,
+                    38.dp,
+                    Modifier.then(if (onChannel != null) Modifier.clip(CircleShape).clickable(onClick = onChannel) else Modifier),
+                )
+                Spacer(Modifier.width(12.dp))
+            } else {
+                Spacer(Modifier.width(2.dp))
+            }
+            Column(Modifier.weight(1f).padding(top = 1.dp)) {
                 Text(video.title, style = MaterialTheme.typography.titleMedium, color = sc.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(3.dp))
-                Text(TubeFormat.meta(res, video), style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(4.dp))
+                Text(TubeFormat.meta(res, video, withChannel = showChannel), style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             MoreButton(onMore)
         }
@@ -293,16 +299,19 @@ fun ChannelRow(channel: ChannelItem, subscribed: Boolean, onClick: () -> Unit, o
     }
 }
 
-/** "Inscrever-se" (filled) ↔ "Inscrito" (quiet, with a tick): the colors glide and the label swaps. */
+/**
+ * "Inscrever-se" (the page's ink turned over: white on dark, black on light) ↔ "Inscrito" (quiet
+ * grey, with a tick): the colors glide and the label swaps. [big]: the channel page's wide button.
+ */
 @Composable
-fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, big: Boolean = false) {
     val interaction = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (subscribed) sc.Surface1 else sc.Accent, tween(260), label = "subBg")
-    val fg by animateColorAsState(if (subscribed) sc.TextMuted else sc.OnAccent, tween(260), label = "subFg")
+    val bg by animateColorAsState(if (subscribed) sc.Surface1 else sc.Text, tween(260), label = "subBg")
+    val fg by animateColorAsState(if (subscribed) sc.Text else sc.Ink, tween(260), label = "subFg")
     val pop = rememberPop(subscribed)
     Box(
         modifier
-            .height(42.dp)
+            .height(if (big) 46.dp else 38.dp)
             .graphicsLayer {
                 scaleX = pop
                 scaleY = pop
@@ -311,7 +320,7 @@ fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit, modifier: Modifier
             .clip(CircleShape)
             .background(bg)
             .clickable(interactionSource = interaction, indication = null, onClick = onClick)
-            .padding(horizontal = 18.dp),
+            .padding(horizontal = if (big) 22.dp else 16.dp),
         contentAlignment = Alignment.Center,
     ) {
         SwapContent(subscribed) { on ->
@@ -320,7 +329,12 @@ fun SubscribeButton(subscribed: Boolean, onClick: () -> Unit, modifier: Modifier
                     Icon(Icons.Rounded.Check, null, tint = fg, modifier = Modifier.size(17.dp))
                     Spacer(Modifier.width(6.dp))
                 }
-                Text(stringResource(if (on) R.string.tube_subscribed else R.string.tube_subscribe), style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
+                Text(
+                    stringResource(if (on) R.string.tube_subscribed else R.string.tube_subscribe),
+                    style = if (big) MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold) else MaterialTheme.typography.labelLarge,
+                    color = fg,
+                    maxLines = 1,
+                )
             }
         }
     }

@@ -1,6 +1,9 @@
 package com.villamediana.sound.ui.tube
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -35,7 +38,6 @@ import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.SearchOff
 import androidx.compose.material.icons.rounded.WifiOff
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -68,9 +70,6 @@ import com.villamediana.sound.tube.online.SearchResult
 import com.villamediana.sound.tube.online.TubeLink
 import com.villamediana.sound.tube.online.TubePage
 import com.villamediana.sound.tube.online.VideoItem
-import com.villamediana.sound.ui.components.EmptyState
-import com.villamediana.sound.ui.components.FilterPill
-import com.villamediana.sound.ui.components.PillButton
 import com.villamediana.sound.ui.theme.Dimens
 import com.villamediana.sound.ui.theme.LocalBottomInset
 import com.villamediana.sound.ui.theme.sc
@@ -198,6 +197,7 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
     val scope = rememberCoroutineScope()
     var menu by remember { mutableStateOf<VideoMenuTarget?>(null) }
     val list = rememberLazyListState()
+    var fieldFocused by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) { if (state.submitted == null) runCatching { focus.requestFocus() } }
     LaunchedEffect(opened) {
@@ -218,12 +218,19 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
             Modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).padding(start = 4.dp, end = Dimens.Gutter, top = 8.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            IconButton(onClick = nav::back) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.tube_back), tint = sc.Text) }
+            CircleIconButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.tube_back), nav::back)
+            Spacer(Modifier.width(4.dp))
             Row(
-                Modifier.weight(1f).height(50.dp).clip(RoundedCornerShape(18.dp)).background(sc.Surface1).padding(start = 14.dp, end = 4.dp),
+                Modifier
+                    .weight(1f)
+                    .height(48.dp)
+                    .clip(CircleShape)
+                    .background(sc.Surface1)
+                    .border(1.5.dp, if (fieldFocused) sc.Accent.copy(alpha = 0.7f) else androidx.compose.ui.graphics.Color.Transparent, CircleShape)
+                    .padding(start = 16.dp, end = 4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Icon(Icons.Rounded.Search, null, tint = sc.TextMuted, modifier = Modifier.size(22.dp))
+                Icon(Icons.Rounded.Search, null, tint = if (fieldFocused) sc.Accent else sc.TextMuted, modifier = Modifier.size(22.dp))
                 Spacer(Modifier.width(10.dp))
                 Box(Modifier.weight(1f)) {
                     if (state.query.isEmpty()) Text(stringResource(R.string.tube_search_hint), style = MaterialTheme.typography.bodyLarge, color = sc.TextFaint, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -238,14 +245,14 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
                             focusManager.clearFocus()
                             vm.submit()
                         }),
-                        modifier = Modifier.fillMaxWidth().focusRequester(focus),
+                        modifier = Modifier.fillMaxWidth().focusRequester(focus).onFocusChanged { fieldFocused = it.isFocused },
                     )
                 }
                 if (state.query.isNotEmpty()) {
-                    IconButton(onClick = {
+                    CircleIconButton(Icons.Rounded.Close, stringResource(R.string.tube_clear), {
                         vm.type("")
                         runCatching { focus.requestFocus() }
-                    }) { Icon(Icons.Rounded.Close, stringResource(R.string.tube_clear), tint = sc.TextMuted, modifier = Modifier.size(20.dp)) }
+                    }, tint = sc.TextMuted, size = 40.dp, iconSize = 20.dp)
                 }
             }
         }
@@ -258,12 +265,7 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
                         item {
                             Row(Modifier.fillMaxWidth().padding(start = Dimens.Gutter, end = 12.dp, top = 8.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Text(stringResource(R.string.tube_search_recent), style = MaterialTheme.typography.headlineSmall, color = sc.Text, modifier = Modifier.weight(1f))
-                                Text(
-                                    stringResource(R.string.tube_clear),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = sc.TextMuted,
-                                    modifier = Modifier.clip(CircleShape).clickable(onClick = vm::clearRecent).padding(horizontal = 8.dp, vertical = 4.dp),
-                                )
+                                TubeButton(stringResource(R.string.tube_clear), onClick = vm::clearRecent, kind = TubeButtonKind.Ghost)
                             }
                         }
                         items(recent, key = { "r:" + it.query }) { r ->
@@ -295,7 +297,7 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
                     SearchKind.PLAYLISTS to R.string.tube_filter_playlists,
                 )
                 items(kinds, key = { it.first.name }) { (kind, label) ->
-                    FilterPill(stringResource(label), selected = state.kind == kind, onClick = { if (state.kind != kind) vm.submit(kind = kind) })
+                    TubeChip(stringResource(label), selected = state.kind == kind, onClick = { if (state.kind != kind) vm.submit(kind = kind) })
                 }
             }
             LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
@@ -312,17 +314,17 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
                     }
                 }
                 when {
-                    state.loading -> item { LoadingRow(Modifier.padding(top = if (state.results.isEmpty()) 60.dp else 0.dp)) }
+                    state.loading -> items(if (state.results.isEmpty()) 7 else 2, key = { "sk$it" }) { SkeletonRow() }
                     state.error -> item {
-                        EmptyState(
+                        TubeEmpty(
                             icon = Icons.Rounded.WifiOff,
                             title = stringResource(R.string.tube_search_error),
                             body = stringResource(R.string.tube_feed_error_body),
-                            action = { PillButton(stringResource(R.string.tube_retry), onClick = { vm.submit() }, filled = true) },
+                            action = { TubeButton(stringResource(R.string.tube_retry), onClick = { vm.submit() }, icon = Icons.Rounded.Refresh) },
                         )
                     }
                     state.results.isEmpty() -> item {
-                        EmptyState(icon = Icons.Rounded.SearchOff, title = stringResource(R.string.tube_search_empty), body = stringResource(R.string.tube_search_empty_body))
+                        TubeEmpty(icon = Icons.Rounded.SearchOff, title = stringResource(R.string.tube_search_empty), body = stringResource(R.string.tube_search_empty_body))
                     }
                 }
             }
@@ -335,12 +337,14 @@ fun TubeSearchScreen(vm: TubeSearchViewModel = viewModel()) {
 @Composable
 private fun QueryRow(text: String, icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit, onTrailing: () -> Unit, trailingIcon: androidx.compose.ui.graphics.vector.ImageVector) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = Dimens.Gutter, end = 8.dp).height(52.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(start = Dimens.Gutter, end = 8.dp).height(54.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Icon(icon, null, tint = sc.TextMuted, modifier = Modifier.size(22.dp))
-        Spacer(Modifier.width(18.dp))
+        Box(Modifier.size(36.dp).clip(CircleShape).background(sc.Surface1), contentAlignment = Alignment.Center) {
+            Icon(icon, null, tint = sc.TextMuted, modifier = Modifier.size(19.dp))
+        }
+        Spacer(Modifier.width(14.dp))
         Text(text, style = MaterialTheme.typography.bodyLarge, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-        IconButton(onClick = onTrailing) { Icon(trailingIcon, null, tint = sc.TextFaint, modifier = Modifier.size(20.dp)) }
+        CircleIconButton(trailingIcon, null, onTrailing, tint = sc.TextFaint, size = 40.dp, iconSize = 20.dp)
     }
 }

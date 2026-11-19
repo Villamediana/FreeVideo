@@ -368,13 +368,13 @@ internal fun BoxScope.SeekHint(streak: SeekStreak?, tap: Offset?) {
                         // The arc: a circle much taller than the stage, centred past the edge.
                         val r = size.height * 1.15f
                         val cx = if (back) size.width - r else r
-                        drawCircle(SoundColors.Text.copy(alpha = 0.09f), radius = r, center = Offset(cx, size.height / 2f))
+                        drawCircle(Color.White.copy(alpha = 0.09f), radius = r, center = Offset(cx, size.height / 2f))
                         // The ripple, from the finger when it is inside this half.
                         val p = ripple.value
                         val shift = if (back) 0f else size.width / HINT_WIDTH - size.width
                         val origin = tap?.let { Offset(it.x - shift, it.y) } ?: Offset(size.width / 2f, size.height / 2f)
                         drawCircle(
-                            SoundColors.Text.copy(alpha = 0.16f * (1f - p)),
+                            Color.White.copy(alpha = 0.16f * (1f - p)),
                             radius = 18.dp.toPx() + 110.dp.toPx() * p,
                             center = origin,
                         )
@@ -395,7 +395,7 @@ internal fun BoxScope.SeekHint(streak: SeekStreak?, tap: Offset?) {
                 Icon(
                     if (back) Icons.Rounded.FastRewind else Icons.Rounded.FastForward,
                     null,
-                    tint = SoundColors.Text,
+                    tint = Color.White,
                     modifier = Modifier
                         .size(30.dp)
                         .graphicsLayer {
@@ -407,7 +407,7 @@ internal fun BoxScope.SeekHint(streak: SeekStreak?, tap: Offset?) {
                 Text(
                     stringResource(R.string.video_seek_seconds, shown.seconds.toInt()),
                     style = MaterialTheme.typography.labelLarge.copy(fontFeatureSettings = "tnum"),
-                    color = SoundColors.Text,
+                    color = Color.White,
                     textAlign = TextAlign.Center,
                 )
             }
@@ -432,7 +432,7 @@ internal fun StageSpinner(visible: Boolean, modifier: Modifier = Modifier) {
             modifier = Modifier
                 .size(34.dp)
                 .semantics { contentDescription = label },
-            color = SoundColors.Text.copy(alpha = 0.7f),
+            color = Color.White.copy(alpha = 0.7f),
             strokeWidth = 2.dp,
             trackColor = Color.Transparent,
             strokeCap = StrokeCap.Round,

@@ -33,6 +33,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
@@ -92,11 +95,7 @@ import com.villamediana.sound.tube.online.VideoItem
 import com.villamediana.sound.tube.player.TubePlayer
 import com.villamediana.sound.ui.components.pressScale
 import com.villamediana.sound.ui.nav.Inbound
-import com.villamediana.sound.ui.theme.FixedColors
 import com.villamediana.sound.ui.theme.LocalBottomInset
-import com.villamediana.sound.ui.theme.LocalSoundColors
-import com.villamediana.sound.ui.theme.SoundColors
-import com.villamediana.sound.ui.theme.searchPalette
 import com.villamediana.sound.ui.theme.Motion
 import com.villamediana.sound.ui.theme.sc
 import com.villamediana.sound.ui.video.rememberVideoProgress
@@ -138,6 +137,10 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     }
 
     val activity = androidx.activity.compose.LocalActivity.current as? androidx.activity.ComponentActivity
+    // Full screen belongs to the shell: from one video to the next it stays, off the watch pages it lets go.
+    val watchMode = remember(activity) { WatchMode(activity) }
+    val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+    WatchModeEffects(activity, watchMode, onWatch = dest?.isWatch() == true, landscape = landscape)
     val pipEnabled by remember { tube.settings.prefs.map { it.pictureInPicture } }.collectAsState(initial = true)
     val inPip = rememberPipMode(activity, tube.player)
     PipParams(activity, pState, pipEnabled)
@@ -145,7 +148,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     PauseInBackground(tube.player, keepPlaying = background || inPip || (pipEnabled && android.os.Build.VERSION.SDK_INT >= 26))
 
     val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    // The search page is its own colored surface, edge to edge: no bar under it (the mini player stays).
+    // Search takes the whole page (its keyboard needs the room): no bar under it (the mini player stays).
     val barHidden = full || dest?.hasRoute(TubeSearchRoute::class) == true
     val bar = if (barHidden) 0.dp else BAR_HEIGHT
     val mini by animateDpAsState(if (showMini) MINI_HEIGHT + 8.dp else 0.dp, label = "mini")
@@ -153,6 +156,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     CompositionLocalProvider(
         LocalInPip provides inPip,
         LocalTubeNav provides nav,
+        LocalWatchMode provides watchMode,
         LocalBottomInset provides navBar + bar + mini + 12.dp,
     ) {
         Box(Modifier.fillMaxSize().background(sc.Ink)) {
@@ -192,11 +196,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
                 composable<FeedRoute> { Page { FeedScreen() } }
                 composable<SubsRoute> { Page { SubsScreen() } }
                 composable<YouRoute> { Page { LibraryScreen() } }
-                composable<TubeSearchRoute> {
-                    // Search draws on the highlight color, as FreeSong's does.
-                    val colors = remember(SoundColors.palette) { FixedColors(searchPalette(SoundColors.palette)) }
-                    CompositionLocalProvider(LocalSoundColors provides colors) { Page(SoundColors.Search) { TubeSearchScreen() } }
-                }
+                composable<TubeSearchRoute> { Page { TubeSearchScreen() } }
                 composable<WatchRoute> { Page { WatchScreen(it.toRoute()) } }
                 composable<ChannelRoute> { Page { ChannelScreen(it.toRoute()) } }
                 composable<TubePlaylistRoute> { Page { PlaylistScreen(it.toRoute()) } }
@@ -269,25 +269,51 @@ private fun PauseInBackground(player: TubePlayer, keepPlaying: Boolean) {
 
 // ------------------------------------------------------------------ bottom bar
 
+/**
+ * Three icons, no words (TalkBack still reads each tab's name): the chosen one filled, in the page's
+ * ink, with a short ember bar under it that glides from tab to tab.
+ */
 @Composable
 private fun BottomBar(dest: NavDestination?, nav: TubeNavigator) {
-    Column(Modifier.fillMaxWidth().background(sc.Ink)) {
+    val home = dest?.hierarchy()?.any { it.hasRoute(FeedRoute::class) } == true || dest == null
+    val subs = dest?.hasRoute(SubsRoute::class) == true
+    val you = dest?.hasRoute(YouRoute::class) == true
+    val index = when {
+        subs -> 1
+        you -> 2
+        home -> 0
+        else -> -1
+    }
+    val ink = sc.Ink
+    Column(Modifier.fillMaxWidth().background(ink)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(sc.Hairline))
-        Row(
-            Modifier.fillMaxWidth().height(BAR_HEIGHT).selectableGroup(),
-            horizontalArrangement = Arrangement.SpaceEvenly,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val home = dest?.hierarchy()?.any { it.hasRoute(FeedRoute::class) } == true || dest == null
-            BarItem(stringResource(R.string.tube_tab_home), Icons.Outlined.Home, Icons.Rounded.Home, home) {
-                if (dest?.hasRoute(FeedRoute::class) == true) nav.homeAgain.tryEmit(Unit) else nav.switchTab(FeedRoute)
+        androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().height(BAR_HEIGHT)) {
+            val slot = maxWidth / 3
+            val x by animateDpAsState(slot * index.coerceAtLeast(0) + (slot - INDICATOR_WIDTH) / 2, Motion.bouncy(), label = "barX")
+            val shown by androidx.compose.animation.core.animateFloatAsState(if (index >= 0) 1f else 0f, tween(200), label = "barShown")
+            Row(Modifier.fillMaxSize().selectableGroup(), verticalAlignment = Alignment.CenterVertically) {
+                BarItem(stringResource(R.string.tube_tab_home), Icons.Outlined.Home, Icons.Rounded.Home, index == 0) {
+                    if (dest?.hasRoute(FeedRoute::class) == true) nav.homeAgain.tryEmit(Unit) else nav.switchTab(FeedRoute)
+                }
+                BarItem(stringResource(R.string.tube_tab_subs), Icons.Outlined.Subscriptions, Icons.Rounded.Subscriptions, index == 1) { nav.switchTab(SubsRoute) }
+                BarItem(stringResource(R.string.tube_tab_library), Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary, index == 2) { nav.switchTab(YouRoute) }
             }
-            BarItem(stringResource(R.string.tube_tab_subs), Icons.Outlined.Subscriptions, Icons.Rounded.Subscriptions, dest?.hasRoute(SubsRoute::class) == true) { nav.switchTab(SubsRoute) }
-            BarItem(stringResource(R.string.tube_tab_library), Icons.Outlined.VideoLibrary, Icons.Rounded.VideoLibrary, dest?.hasRoute(YouRoute::class) == true) { nav.switchTab(YouRoute) }
+            Box(
+                Modifier
+                    .align(Alignment.BottomStart)
+                    .padding(bottom = 9.dp)
+                    .offset(x = x)
+                    .graphicsLayer { alpha = shown }
+                    .size(INDICATOR_WIDTH, 3.dp)
+                    .clip(CircleShape)
+                    .background(sc.Accent),
+            )
         }
         Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
     }
 }
+
+private val INDICATOR_WIDTH = 18.dp
 
 private fun NavDestination.hierarchy(): Sequence<NavDestination> = generateSequence(this) { it.parent }
 
@@ -295,12 +321,9 @@ private fun NavDestination.hierarchy(): Sequence<NavDestination> = generateSeque
 private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, icon: ImageVector, selectedIcon: ImageVector, selected: Boolean, onClick: () -> Unit) {
     val interaction = remember { MutableInteractionSource() }
     val haptic = LocalHapticFeedback.current
-    val pill by animateColorAsState(if (selected) sc.AccentSoft else Color.Transparent, tween(240), label = "barPill")
-    val tint by animateColorAsState(if (selected) sc.Accent else sc.TextMuted, tween(240), label = "barTint")
-    val text by animateColorAsState(if (selected) sc.Text else sc.TextMuted, tween(240), label = "barText")
-    val width by animateDpAsState(if (selected) 22.dp else 14.dp, Motion.bouncy(), label = "barWidth")
+    val tint by animateColorAsState(if (selected) sc.Text else sc.TextFaint, tween(220), label = "barTint")
     val pop = rememberPop(selected)
-    Column(
+    Box(
         Modifier
             .weight(1f)
             .fillMaxHeight()
@@ -309,73 +332,79 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, i
                 haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
                 onClick()
             }),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+        contentAlignment = Alignment.Center,
     ) {
-        Box(
-            Modifier
-                .pressScale(interaction)
-                .clip(CircleShape)
-                .background(pill)
-                .padding(horizontal = width, vertical = 4.dp),
-        ) {
-            Crossfade(selected, animationSpec = tween(200), label = "barIcon") { on ->
-                Icon(if (on) selectedIcon else icon, null, tint = tint, modifier = Modifier.size(24.dp).graphicsLayer {
+        Box(Modifier.pressScale(interaction).padding(bottom = 4.dp)) {
+            Crossfade(selected, animationSpec = tween(180), label = "barIcon") { on ->
+                Icon(if (on) selectedIcon else icon, null, tint = tint, modifier = Modifier.size(27.dp).graphicsLayer {
                     scaleX = pop
                     scaleY = pop
                 })
             }
-        }
-        // Only the chosen tab says its name: the icons speak for the others.
-        AnimatedVisibility(selected, enter = fadeIn(tween(200)) + androidx.compose.animation.expandVertically(), exit = fadeOut(tween(120)) + androidx.compose.animation.shrinkVertically()) {
-            Text(label, style = MaterialTheme.typography.labelMedium, color = text, maxLines = 1, modifier = Modifier.padding(top = 3.dp))
         }
     }
 }
 
 // ------------------------------------------------------------------ mini player
 
+/**
+ * The video going on while browsing: a floating card with the picture, title and channel, play/pause
+ * and close; the ember line along its bottom is how far it is. Tap it to come back to the video.
+ */
 @Composable
 private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -> Unit) {
     val video = state.video ?: return
     val exo by player.player.collectAsState()
     val progress = rememberVideoProgress(exo)
+    val accent = sc.Accent
+    val track = sc.Hairline
+    val interaction = remember { MutableInteractionSource() }
     Box(
         Modifier
             .padding(horizontal = 8.dp)
             .padding(bottom = 8.dp)
             .fillMaxWidth()
             .height(MINI_HEIGHT)
-            .clip(RoundedCornerShape(16.dp))
+            .pressScale(interaction, 0.985f)
+            .floatingShadow()
+            .clip(RoundedCornerShape(18.dp))
             .background(sc.Surface2)
-            .clickable(onClick = onOpen),
+            .clickable(interactionSource = interaction, indication = null, onClick = onOpen),
     ) {
-        Row(Modifier.fillMaxSize().padding(start = 8.dp, end = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.height(48.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(9.dp)).background(Color.Black)) {
+        Row(Modifier.fillMaxSize().padding(start = 6.dp, end = 2.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.height(MINI_HEIGHT - 12.dp).aspectRatio(16f / 9f).clip(RoundedCornerShape(12.dp)).background(Color.Black)) {
+                // The video itself when it has a picture; its thumbnail until then.
                 AsyncImage(model = video.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(video.title, style = MaterialTheme.typography.titleSmall, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(2.dp))
                 Text(video.channelName, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
-            MiniButton(if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow, "", player::togglePlayPause)
-            MiniButton(Icons.Rounded.Close, stringResource(R.string.tube_close), player::close)
+            CircleIconButton(
+                if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                stringResource(if (state.playing) R.string.video_pause else R.string.video_play),
+                player::togglePlayPause,
+                iconSize = 28.dp,
+            )
+            CircleIconButton(Icons.Rounded.Close, stringResource(R.string.tube_close), player::close, tint = sc.TextMuted)
         }
-        val fraction = if (progress.durationMs > 0) (progress.positionMs.toFloat() / progress.durationMs).coerceIn(0f, 1f) else 0f
-        Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(2.dp).background(sc.Hairline)) {
-            Box(Modifier.fillMaxHeight().fillMaxWidth(fraction).background(sc.Accent))
-        }
+        Box(
+            Modifier.align(Alignment.BottomStart).fillMaxWidth().padding(horizontal = 14.dp).height(2.5.dp).clip(CircleShape).drawBehind {
+                drawRect(track)
+                val total = progress.durationMs
+                if (total > 0) drawRect(accent, size = size.copy(width = size.width * (progress.positionMs.toFloat() / total).coerceIn(0f, 1f)))
+            },
+        )
     }
 }
 
+/** A soft shadow under floating cards (the mini player), lighter on the light theme. */
 @Composable
-private fun MiniButton(icon: ImageVector, description: String, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    Box(
-        Modifier.size(44.dp).pressScale(interaction).clip(CircleShape).clickable(interactionSource = interaction, indication = null, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(icon, description.ifEmpty { null }, tint = sc.Text, modifier = Modifier.size(26.dp))
-    }
-}
+private fun Modifier.floatingShadow(): Modifier = this.shadow(
+    elevation = if (sc.isLight) 10.dp else 0.dp,
+    shape = RoundedCornerShape(18.dp),
+    ambientColor = Color.Black.copy(alpha = 0.18f),
+    spotColor = Color.Black.copy(alpha = 0.18f),
+)

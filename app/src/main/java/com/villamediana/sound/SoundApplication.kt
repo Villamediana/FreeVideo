@@ -25,6 +25,8 @@ class SoundApplication : Application(), SingletonImageLoader.Factory {
         // FreeVideo: none of FreeSong's music work (downloads, profile/friends on the relay). The video
         // library's housekeeping, and new versions from FreeVideo's own GitHub releases.
         graph.scope.launch { runCatching { graph.tube.library.prune() } }
+        // What 1.1.0 cached could mix two files of a video (blocks in the picture): dropped once, off the main thread.
+        graph.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.villamediana.sound.tube.player.VideoCache.purgeLegacy(this@SoundApplication) } }
         if (graph.updates.enabled) runCatching { com.villamediana.sound.update.UpdateCheckWorker.schedule(this) }
         // Android 12–13: a version ready installs itself once the app leaves the screen (14+ waits by itself).
         runCatching { com.villamediana.sound.update.UpdateIdleWorker.watch(this, graph.updates) }

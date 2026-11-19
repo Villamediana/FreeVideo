@@ -6,6 +6,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -39,7 +40,6 @@ import androidx.compose.material.icons.rounded.ThumbUp
 import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -68,9 +68,6 @@ import com.villamediana.sound.R
 import com.villamediana.sound.SoundApplication
 import com.villamediana.sound.tube.data.Subscription
 import com.villamediana.sound.tube.online.VideoItem
-import com.villamediana.sound.ui.components.EmptyState
-import com.villamediana.sound.ui.components.PillButton
-import com.villamediana.sound.ui.components.SectionHeader
 import com.villamediana.sound.ui.theme.Dimens
 import com.villamediana.sound.ui.theme.LocalBottomInset
 import com.villamediana.sound.ui.theme.sc
@@ -152,20 +149,20 @@ fun SubsScreen(vm: SubsViewModel = viewModel()) {
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(stringResource(R.string.tube_tab_subs), style = MaterialTheme.typography.headlineLarge, color = sc.Text, modifier = Modifier.weight(1f))
-                    IconButton(onClick = nav::openSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.tube_search), tint = sc.Text) }
+                    CircleIconButton(Icons.Rounded.Search, stringResource(R.string.tube_search), nav::openSearch, iconSize = 26.dp)
                     if (subs?.isNotEmpty() == true) {
-                        IconButton(onClick = nav::openSubscriptionList) { Icon(Icons.Rounded.Tune, stringResource(R.string.tube_subs_manage), tint = sc.Text) }
+                        CircleIconButton(Icons.Rounded.Tune, stringResource(R.string.tube_subs_manage), nav::openSubscriptionList)
                     }
                 }
             }
             val list = subs
             if (list != null && list.isEmpty()) {
                 item(key = "empty") {
-                    EmptyState(
+                    TubeEmpty(
                         icon = Icons.Rounded.Subscriptions,
                         title = stringResource(R.string.tube_subs_empty_title),
                         body = stringResource(R.string.tube_subs_empty_body),
-                        action = { PillButton(stringResource(R.string.tube_import), onClick = importer, icon = Icons.Rounded.FileUpload) },
+                        action = { TubeButton(stringResource(R.string.tube_import), onClick = importer, icon = Icons.Rounded.FileUpload, kind = TubeButtonKind.Inverse) },
                     )
                 }
             } else if (list != null) {
@@ -177,12 +174,12 @@ fun SubsScreen(vm: SubsViewModel = viewModel()) {
                     ) {
                         items(list, key = { it.channelUrl }) { s ->
                             Column(
-                                Modifier.width(66.dp).clip(RoundedCornerShape(12.dp)).clickable { nav.openChannel(s.channelUrl, s.name, s.avatarUrl) },
+                                Modifier.width(70.dp).pressable(onClick = { nav.openChannel(s.channelUrl, s.name, s.avatarUrl) }, pressed = 0.94f),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                             ) {
-                                ChannelAvatar(s.avatarUrl, s.name, 58.dp)
-                                Spacer(Modifier.height(6.dp))
-                                Text(s.name, style = MaterialTheme.typography.labelMedium, color = sc.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                ChannelAvatar(s.avatarUrl, s.name, 62.dp, Modifier.border(2.dp, sc.Hairline, CircleShape))
+                                Spacer(Modifier.height(7.dp))
+                                Text(s.name, style = MaterialTheme.typography.labelMedium, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                     }
@@ -196,7 +193,7 @@ fun SubsScreen(vm: SubsViewModel = viewModel()) {
                         onChannel = v.channelUrl?.let { url -> { nav.openChannel(url, v.channelName, v.channelAvatar) } },
                     )
                 }
-                if (state.loading && state.videos.isEmpty()) item(key = "loading") { LoadingRow(Modifier.padding(top = 40.dp)) }
+                if (state.loading && state.videos.isEmpty()) items(3, key = { "sk$it" }) { SkeletonCard() }
             }
         }
     }
@@ -245,7 +242,9 @@ fun SubscriptionListScreen() {
         PageTopBar(stringResource(R.string.tube_your_subs), onBack = nav::back)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
             item(key = "import") {
-                LibraryRow(Icons.Rounded.FileUpload, stringResource(R.string.tube_import), stringResource(R.string.tube_import_body), onClick = importer)
+                Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(22.dp)).background(sc.Surface1)) {
+                    LibraryRow(Icons.Rounded.FileUpload, stringResource(R.string.tube_import), stringResource(R.string.tube_import_body), onClick = importer, tint = LibraryTint.Import)
+                }
             }
             items(subs, key = { it.channelUrl }) { s ->
                 Row(
@@ -283,14 +282,15 @@ fun LibraryScreen() {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(stringResource(R.string.tube_library_title), style = MaterialTheme.typography.headlineLarge, color = sc.Text, modifier = Modifier.weight(1f))
-                IconButton(onClick = nav::openSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.tube_search), tint = sc.Text) }
-                IconButton(onClick = nav::openSettings) { Icon(Icons.Outlined.Settings, stringResource(R.string.tube_settings), tint = sc.Text) }
+                CircleIconButton(Icons.Rounded.Search, stringResource(R.string.tube_search), nav::openSearch, iconSize = 26.dp)
+                CircleIconButton(Icons.Outlined.Settings, stringResource(R.string.tube_settings), nav::openSettings)
             }
         }
+        item(key = "stats") { WatchStats(history) }
         if (history.isNotEmpty()) {
             item(key = "history") {
-                Column(Modifier.padding(bottom = 12.dp)) {
-                    SectionHeader(title = stringResource(R.string.tube_history), action = stringResource(R.string.tube_see_all), onAction = { nav.openList(VideoLists.HISTORY) })
+                Column(Modifier.padding(bottom = 8.dp)) {
+                    TubeSectionHeader(title = stringResource(R.string.tube_history), action = stringResource(R.string.tube_see_all), onAction = { nav.openList(VideoLists.HISTORY) })
                     LazyRow(contentPadding = PaddingValues(horizontal = Dimens.Gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                         items(history.take(20), key = { it.videoId }) { w ->
                             val v = VideoItem(w.videoId, w.title, w.channelName, w.channelUrl, null, w.thumbnailUrl, w.durationMs)
@@ -301,33 +301,76 @@ fun LibraryScreen() {
             }
         }
         item(key = "rows") {
-            Column {
-                LibraryRow(Icons.Rounded.History, stringResource(R.string.tube_history), TubeFormat.videoCount(res, history.size.toLong()), onClick = { nav.openList(VideoLists.HISTORY) })
-                LibraryRow(Icons.Rounded.Schedule, stringResource(R.string.tube_later), TubeFormat.videoCount(res, later.size.toLong()), onClick = { nav.openList(VideoLists.LATER) })
-                LibraryRow(Icons.Rounded.ThumbUp, stringResource(R.string.tube_liked_videos), TubeFormat.videoCount(res, liked.size.toLong()), onClick = { nav.openList(VideoLists.LIKED) })
-                LibraryRow(Icons.Rounded.Subscriptions, stringResource(R.string.tube_your_subs), subs.size.toString(), onClick = nav::openSubscriptionList)
+            Column(Modifier.padding(horizontal = 16.dp, vertical = 8.dp).clip(RoundedCornerShape(22.dp)).background(sc.Surface1)) {
+                LibraryRow(Icons.Rounded.History, stringResource(R.string.tube_history), TubeFormat.videoCount(res, history.size.toLong()), onClick = { nav.openList(VideoLists.HISTORY) }, tint = LibraryTint.History)
+                LibraryDivider()
+                LibraryRow(Icons.Rounded.Schedule, stringResource(R.string.tube_later), TubeFormat.videoCount(res, later.size.toLong()), onClick = { nav.openList(VideoLists.LATER) }, tint = LibraryTint.Later)
+                LibraryDivider()
+                LibraryRow(Icons.Rounded.ThumbUp, stringResource(R.string.tube_liked_videos), TubeFormat.videoCount(res, liked.size.toLong()), onClick = { nav.openList(VideoLists.LIKED) }, tint = LibraryTint.Liked)
+                LibraryDivider()
+                LibraryRow(Icons.Rounded.Subscriptions, stringResource(R.string.tube_your_subs), subs.size.toString(), onClick = nav::openSubscriptionList, tint = LibraryTint.Subs)
             }
         }
     }
     menu?.let { target -> VideoActionsSheet(target, onClose = { menu = null }) }
 }
 
+private object LibraryTint {
+    val History = androidx.compose.ui.graphics.Color(0xFF2FA8FF)
+    val Later = androidx.compose.ui.graphics.Color(0xFFFF9F2E)
+    val Liked = androidx.compose.ui.graphics.Color(0xFFFF4D62)
+    val Subs = androidx.compose.ui.graphics.Color(0xFFB65CFF)
+    val Import = androidx.compose.ui.graphics.Color(0xFF20B47A)
+}
+
 @Composable
-internal fun LibraryRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit) {
+private fun LibraryDivider() {
+    androidx.compose.foundation.layout.Box(Modifier.fillMaxWidth().padding(start = 68.dp).height(1.dp).background(sc.Hairline))
+}
+
+@Composable
+internal fun LibraryRow(icon: ImageVector, title: String, subtitle: String?, onClick: () -> Unit, tint: androidx.compose.ui.graphics.Color = sc.Accent) {
     Row(
-        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = Dimens.Gutter, vertical = 12.dp),
+        Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        androidx.compose.foundation.layout.Box(
-            Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(sc.Surface1),
-            contentAlignment = Alignment.Center,
-        ) { Icon(icon, null, tint = sc.Accent, modifier = Modifier.size(24.dp)) }
-        Spacer(Modifier.width(16.dp))
+        IconTile(icon, tint, size = 38.dp)
+        Spacer(Modifier.width(14.dp))
         Column(Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.titleMedium, color = sc.Text, maxLines = 1)
             if (!subtitle.isNullOrBlank()) Text(subtitle, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
         }
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = sc.TextFaint)
+    }
+}
+
+/** What was watched, in two big figures (videos and hours), on the phone only. */
+@Composable
+private fun WatchStats(history: List<com.villamediana.sound.tube.data.WatchEntry>) {
+    if (history.isEmpty()) return
+    val res = resources()
+    val hours = history.sumOf { it.watchedMs } / 3_600_000.0
+    val channels = history.map { it.channelName }.filter { it.isNotBlank() }.distinct().size
+    Row(
+        Modifier
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(22.dp))
+            .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(sc.SoftTop, sc.Surface1)))
+            .padding(vertical = 16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+    ) {
+        Stat(TubeFormat.compact(history.size.toLong()), res.getQuantityString(R.plurals.tube_stat_videos, history.size))
+        Stat(if (hours < 10) String.format(java.util.Locale.getDefault(), "%.1f", hours) else TubeFormat.compact(hours.toLong()), stringResource(R.string.tube_stat_hours))
+        Stat(TubeFormat.compact(channels.toLong()), res.getQuantityString(R.plurals.tube_stat_channels, channels))
+    }
+}
+
+@Composable
+private fun Stat(value: String, label: String) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Text(value, style = MaterialTheme.typography.headlineMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.ExtraBold), color = sc.Text)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted)
     }
 }
 

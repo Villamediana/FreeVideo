@@ -4,7 +4,8 @@
 
 **Vídeos do YouTube no Android, sem conta, sem anúncio e com um feed que aprende no próprio celular.**
 
-Irmão do [FreeSong](https://github.com/Villamediana/FreeSong): mesmo visual, mesmo NewPipeExtractor, mesmo player.
+Irmão do [FreeSong](https://github.com/Villamediana/FreeSong): mesmo NewPipeExtractor e a mesma camada de streaming,
+com visual próprio (vermelho brasa, fonte Plus Jakarta Sans, preto de cinema no tema escuro).
 
 </div>
 
@@ -19,9 +20,13 @@ Irmão do [FreeSong](https://github.com/Villamediana/FreeSong): mesmo visual, me
   diz no menu ⋮ por que apareceu. Pura lógica em `tube/feed/FeedEngine.kt` (testada).
 - **Temas** no topo do Início (os seus e alguns fixos: Música, Games, Ao vivo…). Quem acabou de instalar
   escolhe alguns em "Do que você gosta?".
-- **Assistir**: o player do FreeSong (toque duplo pula 10 s, segurar = 2×, deslizar pra cima = tela cheia,
-  pra baixo = minimizar), retoma de onde parou, próximo automático, mini player enquanto navega,
-  ao vivo (HLS) e, opcional, **tocar em segundo plano** com controles na notificação.
+- **Assistir**: toque duplo pula 10 s, segurar = 2×; arrastar o vídeo pra cima = tela cheia (deitado, ou em pé
+  para vídeos verticais), pra baixo = minimizar, e o vídeo acompanha o dedo; na tela cheia, arrastar pra cima
+  mostra "A seguir". Retoma de onde parou, próximo automático, mini player enquanto navega, janela flutuante,
+  ao vivo (HLS) e **segundo plano** com controles na notificação.
+- **Vídeos guardados**: o que você assiste fica num cache de 1,5 GB, identificado pelo arquivo exato do
+  YouTube (formato, versão e tamanho), então pedaços de arquivos diferentes nunca se misturam.
+- **Comentários** com respostas que abrem no próprio comentário; **canais** com banner, abas e Shorts em grade.
 - **Inscrições sem conta** (ficam no celular; os vídeos novos vêm do RSS dos canais) e importação do
   Google Takeout (`subscriptions.csv`).
 - **Biblioteca**: histórico, Assistir mais tarde, Vídeos curtidos; busca com sugestões e links colados.
@@ -50,7 +55,8 @@ SOUND_LIVE=1 ./gradlew :app:testDebugUnitTest --tests 'com.villamediana.sound.tu
 ./gradlew :app:assembleRelease                                                       # APK
 ```
 
-`tools/release.sh` está bloqueado: ele publicaria no repositório do FreeSong.
+Versões: `tools/release.sh -n "notas"` publica no GitHub do FreeVideo, e o app se atualiza sozinho.
+Ícones: `tools/freevideo_brand.py app/src/main/res` (Pillow).
 
 ---
 

@@ -183,14 +183,35 @@ class TubeSource(private val http: OkHttpClient) {
      * The streams to play [id]: the best H.264 video up to [maxHeight] + the M4A audio (or a muxed
      * stream), or the HLS manifest of a live. [fresh] = the last urls were refused.
      */
-    suspend fun stream(id: String, maxHeight: Int, fresh: Boolean = false): TubeStream = io("stream") {
+    /**
+     * What to play for [id]. [keep] = the stream played until now (its urls expired or were refused):
+     * the same files are looked for first, so the new urls continue the old bytes exactly.
+     */
+    suspend fun stream(id: String, maxHeight: Int, fresh: Boolean = false, keep: TubeStream? = null): TubeStream = io("stream") {
         val info = info(id, fresh)
         val live = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM
         val hls = info.hlsUrl?.takeIf { it.isNotBlank() }
         if (live && hls != null) return@io TubeStream(hls, null, "application/x-mpegURL", null, 0, 0, hlsUrl = hls)
+        keep?.let { sameFiles(info, it) }?.let { return@io it }
         pickVideo(info, maxHeight)
             ?: hls?.let { TubeStream(it, null, "application/x-mpegURL", null, 0, 0, hlsUrl = it) }
             ?: throw OnlineException("No playable video for $id", kind = OnlineException.Kind.UNAVAILABLE)
+    }
+
+    /** [keep]'s files (same [StreamTag]s) among [info]'s streams, with fresh urls; null when one is gone. */
+    private fun sameFiles(info: StreamInfo, keep: TubeStream): TubeStream? {
+        if (keep.hlsUrl != null) return null
+        val videoTag = keep.videoTag ?: return null
+        val video = (info.videoOnlyStreams + info.videoStreams)
+            .firstOrNull { it.isUrl && !it.content.isNullOrBlank() && StreamTag.of(it.content) == videoTag } ?: return null
+        val audioTag = keep.audioTag
+        val audio = if (keep.audioUrl == null) {
+            null
+        } else {
+            audioTag ?: return null
+            info.audioStreams.firstOrNull { it.isUrl && !it.content.isNullOrBlank() && StreamTag.of(it.content) == audioTag } ?: return null
+        }
+        return keep.copy(videoUrl = video.content, audioUrl = audio?.content)
     }
 
     private fun pickVideo(info: StreamInfo, maxHeight: Int): TubeStream? {
@@ -218,18 +239,31 @@ class TubeSource(private val http: OkHttpClient) {
     suspend fun comments(id: String): TubePage<CommentItem> = io("comments") {
         val info = CommentsInfo.getInfo(service, watchUrl(id))
         if (info.isCommentsDisabled) return@io TubePage(emptyList())
-        TubePage(info.relatedItems.mapNotNull { commentOf(it) }, info.nextPage?.let { CommentsCursor(info.url, it) })
+        TubePage(
+            info.relatedItems.mapNotNull { commentOf(it, info.url) },
+            info.nextPage?.let { CommentsCursor(info.url, it) },
+            total = info.commentsCount.toLong().takeIf { it >= 0 } ?: -1,
+        )
+    }
+
+    /** The first replies of [comment] (more with [moreComments]). */
+    suspend fun replies(comment: CommentItem): TubePage<CommentItem> {
+        val cursor = comment.repliesCursor as? CommentsCursor ?: return TubePage(emptyList())
+        return io("replies") {
+            val more = CommentsInfo.getMoreItems(service, cursor.url, cursor.page)
+            TubePage(more.items.mapNotNull { commentOf(it, cursor.url) }, more.nextPage?.let { CommentsCursor(cursor.url, it) })
+        }
     }
 
     suspend fun moreComments(page: TubePage<CommentItem>): TubePage<CommentItem> {
         val cursor = page.cursor as? CommentsCursor ?: return TubePage(emptyList())
         return io("comments more") {
             val more = CommentsInfo.getMoreItems(service, cursor.url, cursor.page)
-            TubePage(more.items.mapNotNull { commentOf(it) }, more.nextPage?.let { CommentsCursor(cursor.url, it) })
+            TubePage(more.items.mapNotNull { commentOf(it, cursor.url) }, more.nextPage?.let { CommentsCursor(cursor.url, it) })
         }
     }
 
-    private fun commentOf(c: CommentsInfoItem): CommentItem? {
+    private fun commentOf(c: CommentsInfoItem, url: String): CommentItem? {
         val text = textOf(c.commentText).trim()
         if (text.isEmpty()) return null
         return CommentItem(
@@ -244,6 +278,8 @@ class TubeSource(private val http: OkHttpClient) {
             pinned = c.isPinned,
             hearted = c.isHeartedByUploader,
             byUploader = runCatching { c.isChannelOwner }.getOrDefault(false),
+            verified = runCatching { c.isUploaderVerified }.getOrDefault(false),
+            repliesCursor = c.replies?.takeIf { c.replyCount != 0 }?.let { CommentsCursor(url, it) },
         )
     }
 

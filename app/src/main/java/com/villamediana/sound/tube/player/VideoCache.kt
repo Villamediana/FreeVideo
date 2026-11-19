@@ -1,6 +1,7 @@
 package com.villamediana.sound.tube.player
 
 import android.content.Context
+import android.net.Uri
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import androidx.annotation.OptIn
@@ -14,6 +15,7 @@ import com.villamediana.sound.playback.stream.AudioCache
 import com.villamediana.sound.playback.stream.ChunkedHttpDataSource
 import com.villamediana.sound.playback.stream.StreamDataSources
 import com.villamediana.sound.playback.stream.StreamUris
+import com.villamediana.sound.tube.online.StreamTag
 import com.villamediana.sound.tube.online.TubeStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -24,7 +26,8 @@ import java.io.File
 
 /**
  * The videos played lately, on disk ([BYTES], least recently played go first). Keyed by video, part
- * and format, so it outlives the expiring googlevideo urls and a quality change never mixes formats.
+ * and the exact file ([StreamTag]: format, version, size), so it outlives the expiring googlevideo
+ * urls and bytes of two different files never end up under one key.
  */
 @OptIn(UnstableApi::class)
 internal object VideoCache {
@@ -41,9 +44,35 @@ internal object VideoCache {
         ).also { shared = it }
     }
 
+    /** Query parameter of a part's placeholder uri: the [StreamTag] of the file it must read. */
+    const val FILE = "f"
+
+    /** Keys before 1.2.0 ("tube:…") named only codec and height: two files could share one. */
+    private const val LEGACY_PREFIX = "tube:"
+    private const val PREFIX = "tv2:"
+
+    fun tag(part: String, stream: TubeStream): String? = if (part == StreamUris.AUDIO_PART) stream.audioTag else stream.videoTag
+
     fun key(id: String, part: String, stream: TubeStream): String {
-        val format = if (part == StreamUris.AUDIO_PART) stream.audioMimeType.orEmpty() else "${stream.videoMimeType}:${stream.height}"
-        return "tube:$id:$part:$format"
+        val file = tag(part, stream)
+            ?: if (part == StreamUris.AUDIO_PART) stream.audioMimeType.orEmpty() else "${stream.videoMimeType}:${stream.height}"
+        return "$PREFIX$id:$part:$file"
+    }
+
+    /** The placeholder uri of one part of [stream]: the resolver only ever answers it with that same file. */
+    fun uri(id: String, part: String, stream: TubeStream): Uri {
+        val base = StreamUris.video(id, part)
+        val file = tag(part, stream) ?: return base
+        return base.buildUpon().appendQueryParameter(FILE, file).build()
+    }
+
+    /** The file a placeholder uri asks for (null: any). */
+    fun wanted(uri: Uri): String? = uri.getQueryParameter(FILE)?.takeIf { it.isNotBlank() }
+
+    /** Drops what 1.1.0 stored: its keys could mix two files (blocks in the picture). Blocking. */
+    fun purgeLegacy(context: Context) {
+        val cache = get(context)
+        runCatching { cache.keys.filter { it.startsWith(LEGACY_PREFIX) }.forEach { cache.removeResource(it) } }
     }
 
     /** Bytes the cache holds now. */
@@ -85,7 +114,7 @@ internal class Prefetcher(private val context: Context, private val resolver: Ch
                     .setUpstreamDataSourceFactory(ChunkedHttpDataSource.Factory(StreamDataSources.http(), PREFETCH_CHUNK, resolver))
                     .createDataSource()
                 val spec = DataSpec.Builder()
-                    .setUri(StreamUris.video(id, part))
+                    .setUri(VideoCache.uri(id, part, stream))
                     .setKey(VideoCache.key(id, part, stream))
                     .apply { if (!unmetered && part == StreamUris.VIDEO_PART) setLength(METERED_BYTES) }
                     .build()
@@ -117,3 +146,22 @@ internal class Prefetcher(private val context: Context, private val resolver: Ch
         const val START_DELAY_MS = 6_000L
     }
 }
+
+/**
+ * The urls of a video were renewed and the new ones serve another file (YouTube re-encoded it, or
+ * answered with other formats). Reading on would splice two files: the player starts over from the
+ * same second with the new file instead.
+ */
+class FileChangedException(id: String) : java.io.IOException("The stream of $id now serves another file")
+
+/** As the app's policy, but a [FileChangedException] is final at once (retrying reads the same answer). */
+@OptIn(UnstableApi::class)
+internal class TubeLoadErrorPolicy(
+    private val base: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy = com.villamediana.sound.playback.stream.StreamLoadErrorPolicy(),
+) : androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy by base {
+    override fun getRetryDelayMsFor(loadErrorInfo: androidx.media3.exoplayer.upstream.LoadErrorHandlingPolicy.LoadErrorInfo): Long =
+        if (fileChanged(loadErrorInfo.exception)) androidx.media3.common.C.TIME_UNSET else base.getRetryDelayMsFor(loadErrorInfo)
+}
+
+/** Whether [t] (or what caused it) is a [FileChangedException]. */
+internal fun fileChanged(t: Throwable?): Boolean = generateSequence(t) { it.cause }.take(10).any { it is FileChangedException }

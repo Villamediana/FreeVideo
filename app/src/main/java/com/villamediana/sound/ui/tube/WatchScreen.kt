@@ -1,28 +1,32 @@
 package com.villamediana.sound.ui.tube
 
-import android.app.Activity
-import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.os.SystemClock
-import android.view.OrientationEventListener
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.LocalActivity
 import androidx.annotation.OptIn
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.waitForUpOrCancellation
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
@@ -40,18 +44,24 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.Forward10
 import androidx.compose.material.icons.rounded.Fullscreen
 import androidx.compose.material.icons.rounded.FullscreenExit
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.KeyboardArrowUp
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Replay10
 import androidx.compose.material.icons.rounded.SkipNext
+import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.VideocamOff
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -60,10 +70,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,20 +83,23 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.lerp
-import com.villamediana.sound.ui.theme.SoundColors
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.GraphicsLayerScope
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerInputScope
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.semantics
@@ -92,9 +107,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
-import androidx.core.view.WindowCompat
-import androidx.core.view.WindowInsetsCompat
-import androidx.core.view.WindowInsetsControllerCompat
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
@@ -103,23 +116,20 @@ import androidx.media3.ui.compose.state.rememberPresentationState
 import coil3.compose.AsyncImage
 import com.villamediana.sound.R
 import com.villamediana.sound.SoundApplication
+import com.villamediana.sound.tube.online.VideoItem
 import com.villamediana.sound.tube.player.TubePlayer
-import com.villamediana.sound.ui.components.PillButton
-import com.villamediana.sound.ui.theme.Dimens
+import com.villamediana.sound.ui.components.pressScale
 import com.villamediana.sound.ui.theme.Motion
+import com.villamediana.sound.ui.theme.SoundColors
 import com.villamediana.sound.ui.theme.sc
 import com.villamediana.sound.ui.video.OverlayState
 import com.villamediana.sound.ui.video.PendingSeek
 import com.villamediana.sound.ui.video.SeekHint
 import com.villamediana.sound.ui.video.SeekSide
 import com.villamediana.sound.ui.video.SeekStreak
-import com.villamediana.sound.ui.video.StagePill
 import com.villamediana.sound.ui.video.StageSpinner
-import com.villamediana.sound.ui.video.VideoIconButton
-import com.villamediana.sound.ui.video.VideoPlayPause
 import com.villamediana.sound.ui.video.VideoProgress
 import com.villamediana.sound.ui.video.VideoSeek
-import com.villamediana.sound.ui.video.VideoSeekBar
 import com.villamediana.sound.ui.video.rememberVideoProgress
 import com.villamediana.sound.ui.video.safeAspectRatio
 import kotlinx.coroutines.Job
@@ -129,10 +139,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.math.abs
 
 /**
- * The watch page. Upright: the video on top (FreeSong's stage: tap for the controls, double-tap a
- * side to jump 10 s, hold for 2×, swipe up for full screen and down to minimize), the seek bar, and
- * below it the title, actions, channel, description, comments and what comes next. Sideways: the
- * video alone, full screen. Leaving keeps the video going in the mini player.
+ * The watch page. Upright: the video on top (tap for the controls, double-tap a side to jump 10 s,
+ * hold for 2×; drag it up for full screen, down to minimize — it follows the finger), and below it
+ * the title, actions, channel, description, comments and what comes next. Full screen: the video
+ * alone (sideways, or upright for a vertical video); drag down to come back, up for more videos.
+ * Leaving keeps the video going in the mini player.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -140,10 +151,10 @@ fun WatchScreen(route: WatchRoute) {
     val tube = SoundApplication.graph.tube
     val player = tube.player
     val nav = LocalTubeNav.current
+    val mode = LocalWatchMode.current
     val vm: WatchViewModel = viewModel(key = "watch:" + route.id) { WatchViewModel(route.video()) }
     val pState by player.state.collectAsState()
     val exo by player.player.collectAsState()
-    val activity = LocalActivity.current
     val haptic = LocalHapticFeedback.current
 
     // Open (or carry on with) this video. When the player moves on by itself (autoplay), the page follows.
@@ -157,10 +168,11 @@ fun WatchScreen(route: WatchRoute) {
         else if (followed) nav.openVideo(now)
     }
 
-    val turn = remember(activity) { WatchTurn(activity) }
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
-    WatchWindow(activity, turn, landscape)
-    BackHandler(enabled = landscape) { turn.portrait() }
+    val fullscreen = landscape || mode.tall
+    var panel by remember { mutableStateOf(false) }
+    LaunchedEffect(fullscreen) { if (!fullscreen) panel = false }
+    BackHandler(enabled = fullscreen) { if (panel) panel = false else mode.exit() }
 
     val flags = rememberFlags(exo)
     val progress = rememberVideoProgress(exo)
@@ -177,7 +189,15 @@ fun WatchScreen(route: WatchRoute) {
     var rewoundFromPlaying by remember { mutableStateOf(false) }
     var beforeTap by remember { mutableStateOf<OverlayState?>(null) }
     val scope = rememberCoroutineScope()
-    val pinned = scrubbing || loading || error != null
+    val pinned = scrubbing || loading || error != null || panel
+
+    // The drag on the video (px, up < 0): the stage follows it, and past [threshold] it acts.
+    val drag = remember { Animatable(0f) }
+    val threshold = with(LocalDensity.current) { 76.dp.toPx() }
+    val isFull by rememberUpdatedState(fullscreen)
+    val isPanel by rememberUpdatedState(panel)
+    val ratioNow by rememberUpdatedState(pState.aspectRatio)
+    val isLandscape by rememberUpdatedState(landscape)
 
     LaunchedEffect(overlay, pState.playing, pinned) {
         val at = overlay.hideAtMs(pState.playing, pinned) ?: return@LaunchedEffect
@@ -235,6 +255,10 @@ fun WatchScreen(route: WatchRoute) {
             }
 
             override fun stageTap(side: SeekSide, at: Offset) {
+                if (isPanel) {
+                    panel = false
+                    return
+                }
                 if (VideoSeek.continues(streak, side, now())) {
                     seekTap(side, at)
                     return
@@ -279,14 +303,31 @@ fun WatchScreen(route: WatchRoute) {
                 }
             }
 
-            override fun swipe(up: Boolean) {
-                haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
-                val sideways = activity?.resources?.configuration?.orientation == Configuration.ORIENTATION_LANDSCAPE
-                when {
-                    up -> turn.landscape()
-                    sideways -> turn.portrait()
-                    else -> nav.minimize()
+            override fun drag(dy: Float) {
+                val wasPast = abs(drag.value) >= threshold
+                scope.launch { drag.snapTo(dy) }
+                // A tick as the finger crosses the point where letting go acts.
+                if (abs(dy) >= threshold && !wasPast) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+            }
+
+            override fun release(dy: Float, velocity: Float) {
+                val up = dy < 0
+                val flung = abs(velocity) > FLING_PX_S && (velocity < 0) == up && abs(dy) > threshold / 3
+                var minimized = false
+                if (abs(dy) >= threshold || flung) {
+                    haptic.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    when {
+                        isFull && up -> if (!isPanel) panel = true
+                        isFull -> if (isPanel) panel = false else mode.exit()
+                        up -> mode.enter(ratioNow)
+                        else -> {
+                            minimized = true
+                            nav.minimize()
+                        }
+                    }
                 }
+                // Leaving downwards: the page goes as it is; otherwise the video springs back into place.
+                if (!minimized) scope.launch { drag.animateTo(0f, spring(dampingRatio = 0.78f, stiffness = 520f)) }
             }
 
             override fun skip(forward: Boolean) {
@@ -295,64 +336,94 @@ fun WatchScreen(route: WatchRoute) {
                 seekTo(VideoSeek.target(p.currentPosition, p.duration, if (forward) SeekSide.FORWARD else SeekSide.BACK))
             }
 
-            override fun rotate() = turn.flip()
+            override fun rotate() = mode.toggle(ratioNow, isLandscape)
             override fun retry() = player.retry()
             override fun minimize() = nav.minimize()
             override fun playNext() = player.playUpNext()
             override fun cancelNext() = player.cancelCountdown()
+            override fun showPanel(show: Boolean) {
+                panel = show
+                overlay = overlay.touch(now())
+            }
         }
     }
 
     val details by vm.state.collectAsState()
     val title = details.video?.title?.takeIf { it.isNotBlank() } ?: route.title
+    val channel = details.video?.channelName?.takeIf { it.isNotBlank() } ?: route.channel
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(sc.Ink).then(if (pState.playing) Modifier.keepScreenOn() else Modifier)) {
+    BoxWithConstraints(Modifier.fillMaxSize().background(if (fullscreen) Color.Black else sc.Ink).then(if (pState.playing) Modifier.keepScreenOn() else Modifier)) {
         val ratio by animateFloatAsState(safeAspectRatio(pState.aspectRatio).coerceAtLeast(1f), Motion.soft(), label = "ratio")
         val stageHeight = min(maxWidth / ratio, maxHeight * 0.42f)
         Column(Modifier.fillMaxSize()) {
-            if (!landscape) Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Color.Black))
+            if (!fullscreen) Spacer(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(Color.Black))
             Stage(
                 player = exo,
-                ratio = ratio,
+                ratio = if (fullscreen) safeAspectRatio(pState.aspectRatio) else ratio,
                 poster = route.thumb ?: details.video?.thumbnailUrl,
+                fullscreen = fullscreen,
                 landscape = landscape,
                 controlsVisible = overlay.visible || error != null,
                 state = pState,
                 ended = flags.ended,
                 loading = loading,
                 title = title,
+                channel = channel,
                 progress = progress,
                 pending = pending,
                 streak = streak,
                 tapPoint = tapPoint,
                 holding = holding,
                 actions = actions,
-                modifier = if (landscape) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(stageHeight),
+                drag = { drag.value },
+                threshold = threshold,
+                panel = panel,
+                related = details.related,
+                onOpen = { v -> nav.openVideo(v) },
+                modifier = (if (fullscreen) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(stageHeight)).zIndex(1f),
+                // The picture follows the finger (the touch area stays put, so the drag reads true).
+                layer = {
+                        val d = drag.value
+                        if (!fullscreen) {
+                            if (d < 0) {
+                                // Up: the video grows a little toward full screen.
+                                val s = 1f + 0.06f * (-d / threshold).coerceAtMost(1.6f)
+                                scaleX = s
+                                scaleY = s
+                            } else if (d > 0) {
+                                // Down: it sinks and shrinks toward the mini player.
+                                transformOrigin = TransformOrigin(0.5f, 0f)
+                                translationY = d * 0.6f
+                                val s = 1f - 0.12f * (d / threshold).coerceAtMost(1.6f)
+                                scaleX = s
+                                scaleY = s
+                            }
+                        } else if (d > 0 && !panel) {
+                            val s = 1f - 0.07f * (d / threshold).coerceAtMost(1.6f)
+                            scaleX = s
+                            scaleY = s
+                        }
+                    },
             )
-            if (!landscape) {
+            if (!fullscreen) {
                 // The video lends its color to the page: a soft veil under the stage that fades into the background.
                 val veil = animatedVeil(rememberThumbColor(route.thumb ?: details.video?.thumbnailUrl))
                 val ink = sc.Ink
                 val wash = SoundColors.palette.washAlpha
                 Column(
-                    Modifier.weight(1f).fillMaxWidth().drawBehind {
-                        drawRect(Brush.verticalGradient(listOf(lerp(ink, veil, wash * 0.75f), ink), endY = 300.dp.toPx()))
-                    },
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .graphicsLayer {
+                            // Dragging the video down: the page fades as it goes.
+                            val d = drag.value
+                            if (d > 0) alpha = 1f - 0.75f * (d / threshold).coerceIn(0f, 1f)
+                        }
+                        .drawBehind {
+                            drawRect(Brush.verticalGradient(listOf(lerp(ink, veil, wash * 0.7f), ink), endY = 320.dp.toPx()))
+                        },
                 ) {
-                    if (!pState.video.let { it?.live == true }) {
-                        VideoSeekBar(
-                            progress = progress,
-                            pending = pending,
-                            onSeek = actions::seekTo,
-                            onScrub = actions::scrub,
-                            modifier = Modifier.padding(horizontal = Dimens.Gutter).padding(top = 10.dp),
-                        )
-                    }
-                    WatchDetails(
-                        route = route,
-                        vm = vm,
-                        modifier = Modifier.weight(1f),
-                    )
+                    WatchDetails(route = route, vm = vm, modifier = Modifier.weight(1f))
                 }
             }
         }
@@ -360,6 +431,9 @@ fun WatchScreen(route: WatchRoute) {
 }
 
 private fun now(): Long = SystemClock.uptimeMillis()
+
+/** A fling faster than this (px/s) acts even short of the threshold. */
+private const val FLING_PX_S = 1600f
 
 /** Everything the stage can ask for. */
 internal interface WatchActions {
@@ -371,13 +445,17 @@ internal interface WatchActions {
     fun stageTap(side: SeekSide, at: Offset)
     fun doubleTap(side: SeekSide, at: Offset)
     fun hold(active: Boolean, side: SeekSide = SeekSide.FORWARD)
-    fun swipe(up: Boolean)
+    /** The finger dragged the video [dy] px (up < 0) and is still down. */
+    fun drag(dy: Float)
+    /** …and let go after [dy] px, at [velocity] px/s. */
+    fun release(dy: Float, velocity: Float)
     fun skip(forward: Boolean)
     fun rotate()
     fun retry()
     fun minimize()
     fun playNext()
     fun cancelNext()
+    fun showPanel(show: Boolean)
 }
 
 // ------------------------------------------------------------------ stage
@@ -388,27 +466,35 @@ private fun Stage(
     player: Player?,
     ratio: Float,
     poster: String?,
+    fullscreen: Boolean,
     landscape: Boolean,
     controlsVisible: Boolean,
     state: TubePlayer.State,
     ended: Boolean,
     loading: Boolean,
     title: String,
+    channel: String,
     progress: VideoProgress,
     pending: PendingSeek?,
     streak: SeekStreak?,
     tapPoint: Offset?,
     holding: SeekSide?,
     actions: WatchActions,
+    drag: () -> Float,
+    threshold: Float,
+    panel: Boolean,
+    related: List<VideoItem>,
+    onOpen: (VideoItem) -> Unit,
     modifier: Modifier = Modifier,
+    layer: GraphicsLayerScope.() -> Unit = {},
 ) {
     val error = state.error
     val toggleLabel = stringResource(if (controlsVisible) R.string.video_hide_controls else R.string.video_show_controls)
     val interactive = error == null && state.countdown == null
+    val live = state.video?.live == true
+    var dragFraction by remember { mutableStateOf<Float?>(null) }
     Box(
         modifier
-            .background(Color.Black)
-            .clipToBounds()
             .semantics {
                 onClick(label = toggleLabel) {
                     actions.toggleControls()
@@ -420,144 +506,278 @@ private fun Stage(
                 stageGestures(canSeek = player != null, actions = actions)
             },
     ) {
-        val coverSurface = player == null || rememberPresentationState(player).coverSurface
-        Box(
-            Modifier
-                .matchParentSize()
-                .then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.displayCutout) else Modifier),
-            contentAlignment = Alignment.Center,
-        ) {
-            Box(Modifier.aspectRatio(ratio)) {
-                // In the floating window the window draws the video; this surface comes back after it.
-                if (player != null && !LocalInPip.current) PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
-                if (!poster.isNullOrBlank()) {
-                    AnimatedVisibility(coverSurface && error == null, enter = fadeIn(tween(200)), exit = fadeOut(tween(420)), modifier = Modifier.matchParentSize()) {
-                        AsyncImage(model = poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.5f })
-                    }
-                }
-            }
-        }
-
-        AnimatedVisibility(
-            visible = controlsVisible && state.countdown == null,
-            enter = fadeIn(tween(200)),
-            exit = fadeOut(tween(320)),
-            modifier = Modifier.matchParentSize(),
-        ) {
-            Box(Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.4f))) {
-                if (landscape) {
-                    Row(
-                        Modifier
-                            .align(Alignment.TopCenter)
-                            .fillMaxWidth()
-                            .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
-                            .padding(start = 8.dp, end = Dimens.Gutter, top = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        VideoIconButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.tube_back), actions::rotate)
-                        Spacer(Modifier.width(6.dp))
-                        Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    }
-                    if (error == null && state.video?.live != true) {
-                        VideoSeekBar(
-                            progress = progress,
-                            pending = pending,
-                            onSeek = actions::seekTo,
-                            onScrub = actions::scrub,
-                            timeColor = Color.White.copy(alpha = 0.82f),
-                            modifier = Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
-                                .padding(start = Dimens.Gutter, end = 56.dp)
-                                .padding(bottom = 10.dp),
-                        )
-                    }
-                } else {
-                    VideoIconButton(
-                        Icons.Rounded.KeyboardArrowDown,
-                        stringResource(R.string.tube_minimize),
-                        actions::minimize,
-                        Modifier.align(Alignment.TopStart).padding(4.dp),
-                    )
-                    if (state.height > 0) {
-                        Text(
-                            stringResource(R.string.tube_quality_now, state.height),
-                            style = MaterialTheme.typography.labelMedium,
-                            color = Color.White.copy(alpha = 0.8f),
-                            modifier = Modifier.align(Alignment.TopEnd).padding(14.dp),
-                        )
-                    }
-                }
-                if (error == null && player != null) {
-                    Row(
-                        Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(if (landscape) 48.dp else 32.dp),
-                    ) {
-                        VideoIconButton(Icons.Rounded.Replay10, stringResource(R.string.video_back_10), { actions.skip(false) })
-                        Spacer(Modifier.size(if (landscape) 80.dp else 64.dp))
-                        if (ended && state.upNext != null) {
-                            VideoIconButton(Icons.Rounded.SkipNext, stringResource(R.string.tube_play_now), actions::playNext)
-                        } else {
-                            VideoIconButton(Icons.Rounded.Forward10, stringResource(R.string.video_forward_10), { actions.skip(true) })
+        Box(Modifier.matchParentSize().graphicsLayer(layer).background(Color.Black).clipToBounds()) {
+            val coverSurface = player == null || rememberPresentationState(player).coverSurface
+            Box(
+                Modifier
+                    .matchParentSize()
+                    .then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.displayCutout) else Modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(Modifier.aspectRatio(ratio)) {
+                    // In the floating window the window draws the video; this surface comes back after it.
+                    if (player != null && !LocalInPip.current) PlayerSurface(player = player, modifier = Modifier.fillMaxSize())
+                    if (!poster.isNullOrBlank()) {
+                        AnimatedVisibility(coverSurface && error == null, enter = fadeIn(tween(200)), exit = fadeOut(tween(420)), modifier = Modifier.matchParentSize()) {
+                            AsyncImage(model = poster, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize().graphicsLayer { alpha = 0.55f })
                         }
                     }
-                    VideoIconButton(
-                        if (landscape) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                        stringResource(if (landscape) R.string.video_exit_fullscreen else R.string.video_fullscreen),
-                        actions::rotate,
-                        Modifier
-                            .align(Alignment.BottomEnd)
-                            .then(if (landscape) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) else Modifier)
-                            .padding(end = 4.dp, bottom = if (landscape) 2.dp else 0.dp),
-                    )
-                }
-                if (error == null && !loading) {
-                    VideoPlayPause(
-                        playing = state.playing,
-                        ended = ended,
-                        onClick = actions::playPause,
-                        modifier = Modifier.align(Alignment.Center),
-                        size = if (landscape) 80.dp else 64.dp,
-                    )
                 }
             }
-        }
 
-        SeekHint(streak, tapPoint)
-        AnimatedVisibility(
-            visible = holding != null,
-            enter = fadeIn(tween(150)) + scaleIn(tween(200), initialScale = 0.85f),
-            exit = fadeOut(tween(200)),
-            modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
-        ) {
-            val back = holding == SeekSide.BACK
-            Row(
-                Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            // Controls hidden: a thin line along the bottom says how far the video is.
+            AnimatedVisibility(
+                visible = !controlsVisible && !fullscreen && !live && error == null && state.countdown == null,
+                enter = fadeIn(tween(240)),
+                exit = fadeOut(tween(120)),
+                modifier = Modifier.align(Alignment.BottomCenter),
             ) {
-                if (back) {
-                    Icon(Icons.Rounded.FastRewind, null, tint = Color.White, modifier = Modifier.size(16.dp))
-                    Spacer(Modifier.width(4.dp))
+                StageProgressLine(progress, pending)
+            }
+
+            AnimatedVisibility(
+                visible = controlsVisible && state.countdown == null && !panel,
+                enter = fadeIn(tween(200)),
+                exit = fadeOut(tween(320)),
+                modifier = Modifier.matchParentSize(),
+            ) {
+                Box(
+                    Modifier.fillMaxSize().background(
+                        Brush.verticalGradient(
+                            0f to Color.Black.copy(alpha = 0.55f),
+                            0.3f to Color.Black.copy(alpha = 0.28f),
+                            0.65f to Color.Black.copy(alpha = 0.28f),
+                            1f to Color.Black.copy(alpha = 0.62f),
+                        ),
+                    ),
+                ) {
+                    // Top: minimize (upright) or back + title (full screen).
+                    if (fullscreen) {
+                        Row(
+                            Modifier
+                                .align(Alignment.TopCenter)
+                                .fillMaxWidth()
+                                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Top + WindowInsetsSides.Horizontal))
+                                .padding(start = 6.dp, end = 20.dp, top = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            StageButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.video_exit_fullscreen), actions::rotate)
+                            Spacer(Modifier.width(6.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                if (channel.isNotBlank()) Text(channel, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            }
+                        }
+                    } else {
+                        StageButton(
+                            Icons.Rounded.KeyboardArrowDown,
+                            stringResource(R.string.tube_minimize),
+                            actions::minimize,
+                            Modifier.align(Alignment.TopStart).padding(4.dp),
+                            iconSize = 30.dp,
+                        )
+                        if (state.height > 0) {
+                            Text(
+                                stringResource(R.string.tube_quality_now, state.height),
+                                style = MaterialTheme.typography.labelMedium,
+                                color = Color.White,
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(14.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color.White.copy(alpha = 0.16f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    }
+                    // Center: back 10 s, play/pause, forward 10 s.
+                    if (error == null && player != null) {
+                        Row(
+                            Modifier.align(Alignment.Center),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(if (fullscreen) 56.dp else 36.dp),
+                        ) {
+                            StageButton(Icons.Rounded.Replay10, stringResource(R.string.video_back_10), { actions.skip(false) }, iconSize = 30.dp)
+                            Spacer(Modifier.size(if (fullscreen) 76.dp else 62.dp))
+                            if (ended && state.upNext != null) {
+                                StageButton(Icons.Rounded.SkipNext, stringResource(R.string.tube_play_now), actions::playNext, iconSize = 32.dp)
+                            } else {
+                                StageButton(Icons.Rounded.Forward10, stringResource(R.string.video_forward_10), { actions.skip(true) }, iconSize = 30.dp)
+                            }
+                        }
+                    }
+                    if (error == null && !loading) {
+                        StagePlayPause(
+                            playing = state.playing,
+                            ended = ended,
+                            onClick = actions::playPause,
+                            modifier = Modifier.align(Alignment.Center),
+                            size = if (fullscreen) 76.dp else 62.dp,
+                        )
+                    }
+                    // Bottom: time, full screen, and the seek bar along the edge.
+                    if (error == null && player != null) {
+                        Column(
+                            Modifier
+                                .align(Alignment.BottomCenter)
+                                .fillMaxWidth()
+                                .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) else Modifier)
+                                .padding(horizontal = if (fullscreen) 20.dp else 10.dp)
+                                .padding(bottom = if (fullscreen) 6.dp else 0.dp),
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                if (live) {
+                                    Text(
+                                        stringResource(R.string.tube_live),
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = Color.White,
+                                        modifier = Modifier.padding(start = 4.dp).clip(RoundedCornerShape(5.dp)).background(sc.Accent).padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                } else {
+                                    StageTimes(progress, pending, Modifier.padding(start = 4.dp), dragFraction)
+                                }
+                                Spacer(Modifier.weight(1f))
+                                if (fullscreen && related.isNotEmpty()) {
+                                    StageButton(Icons.Rounded.VideoLibrary, stringResource(R.string.tube_more_videos), { actions.showPanel(true) }, size = 42.dp, iconSize = 22.dp)
+                                }
+                                StageButton(
+                                    if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                                    stringResource(if (fullscreen) R.string.video_exit_fullscreen else R.string.video_fullscreen),
+                                    actions::rotate,
+                                    size = 42.dp,
+                                )
+                            }
+                            if (!live) {
+                                StageSeekBar(
+                                    progress = progress,
+                                    pending = pending,
+                                    onSeek = actions::seekTo,
+                                    onScrub = actions::scrub,
+                                    onDragFraction = { dragFraction = it },
+                                    modifier = Modifier.padding(bottom = if (fullscreen) 2.dp else 0.dp),
+                                )
+                            }
+                        }
+                    }
                 }
-                Text("2×", style = MaterialTheme.typography.labelLarge, color = Color.White)
-                if (!back) {
-                    Spacer(Modifier.width(4.dp))
-                    Icon(Icons.Rounded.FastForward, null, tint = Color.White, modifier = Modifier.size(16.dp))
+            }
+
+            SeekHint(streak, tapPoint)
+            AnimatedVisibility(
+                visible = holding != null,
+                enter = fadeIn(tween(150)) + scaleIn(tween(200), initialScale = 0.85f),
+                exit = fadeOut(tween(200)),
+                modifier = Modifier.align(Alignment.TopCenter).padding(top = 16.dp),
+            ) {
+                val back = holding == SeekSide.BACK
+                Row(
+                    Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 12.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    if (back) {
+                        Icon(Icons.Rounded.FastRewind, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                    }
+                    Text("2×", style = MaterialTheme.typography.labelLarge, color = Color.White)
+                    if (!back) {
+                        Spacer(Modifier.width(4.dp))
+                        Icon(Icons.Rounded.FastForward, null, tint = Color.White, modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
+            DragHint(drag, threshold, fullscreen, panel, Modifier.align(Alignment.Center))
+            StageSpinner(loading, Modifier.align(Alignment.Center))
+            state.countdown?.let { seconds -> UpNextOverlay(seconds, state.upNext?.title.orEmpty(), state.upNext?.thumbnailUrl, actions, fullscreen) }
+            if (error != null) StageError(error, compact = !fullscreen, onRetry = actions::retry, modifier = Modifier.align(Alignment.Center))
+        }
+        if (fullscreen) {
+            MoreVideosPanel(
+                visible = panel && related.isNotEmpty(),
+                videos = related,
+                onOpen = onOpen,
+                onClose = { actions.showPanel(false) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
+
+/** While the video is dragged: what letting go will do (full screen, minimize, back upright), brighter as it gets closer. */
+@Composable
+private fun DragHint(drag: () -> Float, threshold: Float, fullscreen: Boolean, panel: Boolean, modifier: Modifier = Modifier) {
+    val direction by remember { derivedStateOf { drag().let { if (it < -1f) -1 else if (it > 1f) 1 else 0 } } }
+    if (direction == 0) return
+    val icon: ImageVector = when {
+        fullscreen && direction < 0 -> if (panel) return else Icons.Rounded.KeyboardArrowUp
+        fullscreen -> if (panel) Icons.Rounded.KeyboardArrowDown else Icons.Rounded.FullscreenExit
+        direction < 0 -> Icons.Rounded.Fullscreen
+        else -> Icons.Rounded.KeyboardArrowDown
+    }
+    Box(
+        modifier
+            .graphicsLayer {
+                val p = (abs(drag()) / threshold).coerceIn(0f, 1f)
+                alpha = p
+                val s = 0.7f + 0.3f * p
+                scaleX = s
+                scaleY = s
+            }
+            .size(64.dp)
+            .clip(CircleShape)
+            .background(Color.Black.copy(alpha = 0.5f))
+            .border(1.dp, Color.White.copy(alpha = 0.18f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, null, tint = Color.White, modifier = Modifier.size(34.dp))
+    }
+}
+
+/** Full screen, swiped up: what comes next, in a row over the bottom of the video. */
+@Composable
+private fun MoreVideosPanel(visible: Boolean, videos: List<VideoItem>, onOpen: (VideoItem) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
+    AnimatedVisibility(
+        visible = visible,
+        enter = slideInVertically(tween(320, easing = Motion.Emphasized)) { it } + fadeIn(tween(200)),
+        exit = slideOutVertically(tween(220)) { it } + fadeOut(tween(160)),
+        modifier = modifier,
+    ) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.78f), Color.Black.copy(alpha = 0.92f))))
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal))
+                .padding(top = 36.dp, bottom = 14.dp),
+        ) {
+            Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(stringResource(R.string.tube_up_next), style = MaterialTheme.typography.titleMedium, color = Color.White, modifier = Modifier.weight(1f))
+                StageButton(Icons.Rounded.Close, stringResource(R.string.tube_close), onClose, size = 40.dp, iconSize = 22.dp)
+            }
+            Spacer(Modifier.height(6.dp))
+            LazyRow(contentPadding = PaddingValues(horizontal = 24.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                items(videos, key = { "p:" + it.id }) { v ->
+                    val interaction = remember { MutableInteractionSource() }
+                    Column(
+                        Modifier
+                            .width(212.dp)
+                            .pressScale(interaction, 0.96f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .clickable(interactionSource = interaction, indication = null) { onOpen(v) },
+                    ) {
+                        VideoThumb(v, Modifier.fillMaxWidth(), shape = SmallThumbShape, compact = true)
+                        Spacer(Modifier.height(6.dp))
+                        Text(v.title, style = MaterialTheme.typography.titleSmall, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        if (v.channelName.isNotBlank()) Text(v.channelName, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.66f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    }
                 }
             }
         }
-        StageSpinner(loading, Modifier.align(Alignment.Center))
-        state.countdown?.let { seconds -> UpNextOverlay(seconds, state.upNext?.title.orEmpty(), state.upNext?.thumbnailUrl, actions, landscape) }
-        if (error != null) StageError(error, compact = !landscape, onRetry = actions::retry, modifier = Modifier.align(Alignment.Center))
     }
 }
 
 /** The end of a video with autoplay on: what's next and when, with "cancel" and "play now". */
 @Composable
-private fun BoxScope.UpNextOverlay(seconds: Int, title: String, thumb: String?, actions: WatchActions, landscape: Boolean) {
-    Box(Modifier.matchParentSize()) {
+private fun BoxScope.UpNextOverlay(seconds: Int, title: String, thumb: String?, actions: WatchActions, big: Boolean) {
+    Box(Modifier.matchParentSize().background(Color.Black)) {
         if (!thumb.isNullOrBlank()) {
             AsyncImage(model = thumb, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.matchParentSize().graphicsLayer { alpha = 0.35f })
         }
@@ -569,7 +789,7 @@ private fun BoxScope.UpNextOverlay(seconds: Int, title: String, thumb: String?, 
             Spacer(Modifier.height(6.dp))
             Text(
                 title,
-                style = if (landscape) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
+                style = if (big) MaterialTheme.typography.headlineSmall else MaterialTheme.typography.titleMedium,
                 color = Color.White,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
@@ -577,10 +797,31 @@ private fun BoxScope.UpNextOverlay(seconds: Int, title: String, thumb: String?, 
             )
             Spacer(Modifier.height(14.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                StagePill(stringResource(R.string.tube_cancel), Icons.Rounded.Refresh, actions::cancelNext)
-                StagePill(stringResource(R.string.tube_play_now), Icons.Rounded.SkipNext, actions::playNext)
+                WhitePill(stringResource(R.string.tube_cancel), Icons.Rounded.Close, actions::cancelNext, filled = false)
+                WhitePill(stringResource(R.string.tube_play_now), Icons.Rounded.SkipNext, actions::playNext, filled = true)
             }
         }
+    }
+}
+
+/** A pill over the video: white (filled) or glass with a white hairline. */
+@Composable
+private fun WhitePill(text: String, icon: ImageVector, onClick: () -> Unit, filled: Boolean) {
+    val interaction = remember { MutableInteractionSource() }
+    Row(
+        Modifier
+            .height(40.dp)
+            .pressScale(interaction, 0.96f)
+            .clip(CircleShape)
+            .background(if (filled) Color.White else Color.White.copy(alpha = 0.14f))
+            .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+            .padding(horizontal = 16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val fg = if (filled) Color.Black else Color.White
+        Icon(icon, null, tint = fg, modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
     }
 }
 
@@ -597,7 +838,7 @@ private fun StageError(message: String, compact: Boolean, onRetry: () -> Unit, m
             Text(message, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f), textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.height(if (compact) 12.dp else 18.dp))
-        StagePill(stringResource(R.string.video_retry), Icons.Rounded.Refresh, onRetry)
+        WhitePill(stringResource(R.string.video_retry), Icons.Rounded.Refresh, onRetry, filled = true)
     }
 }
 
@@ -629,90 +870,18 @@ private fun rememberFlags(player: Player?): Flags {
     return flags
 }
 
-// ------------------------------------------------------------------ window
-
-/** Sideways = full screen without system bars; everything is put back on the way out. */
-@Composable
-private fun WatchWindow(activity: Activity?, turn: WatchTurn, sideways: Boolean) {
-    val view = LocalView.current
-    DisposableEffect(activity, view) {
-        val window = activity?.window ?: return@DisposableEffect onDispose { }
-        val controller = WindowCompat.getInsetsController(window, view)
-        val previousBehavior = controller.systemBarsBehavior
-        controller.systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        turn.start()
-        onDispose {
-            turn.stop()
-            if (activity.isChangingConfigurations) return@onDispose
-            controller.show(WindowInsetsCompat.Type.systemBars())
-            controller.systemBarsBehavior = previousBehavior
-        }
-    }
-    DisposableEffect(activity, view, sideways) {
-        val window = activity?.window ?: return@DisposableEffect onDispose { }
-        val controller = WindowCompat.getInsetsController(window, view)
-        if (sideways) controller.hide(WindowInsetsCompat.Type.systemBars()) else controller.show(WindowInsetsCompat.Type.systemBars())
-        onDispose { }
-    }
-}
-
 /**
- * How the watch page turns. It follows the phone as the rest of the app does (and the system's
- * rotation lock); the full-screen button and a swipe up turn it sideways, and it stays sideways until
- * the person comes back (button, swipe down, back). Back upright, the phone decides again.
- */
-internal class WatchTurn(private val activity: Activity?) {
-    private var previous: Int = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-    private var listener: OrientationEventListener? = null
-    private var releaseWhenUpright = false
-
-    fun start() {
-        val host = activity ?: return
-        previous = host.requestedOrientation
-        listener = object : OrientationEventListener(host) {
-            override fun onOrientationChanged(degrees: Int) {
-                if (degrees == ORIENTATION_UNKNOWN || !releaseWhenUpright) return
-                if (degrees <= 30 || degrees >= 330) {
-                    releaseWhenUpright = false
-                    host.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
-                }
-            }
-        }.also { if (it.canDetectOrientation()) it.enable() }
-    }
-
-    fun stop() {
-        listener?.disable()
-        listener = null
-        activity?.let { if (!it.isChangingConfigurations) it.requestedOrientation = previous }
-    }
-
-    fun landscape() {
-        releaseWhenUpright = false
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
-    }
-
-    fun portrait() {
-        activity?.requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        releaseWhenUpright = true
-    }
-
-    fun flip() {
-        val host = activity ?: return
-        if (host.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE) portrait() else landscape()
-    }
-}
-
-/**
- * Taps, double taps, holds and vertical swipes on the video, told apart by hand so a single tap
- * answers at once: tap = controls, second tap on a side = jump 10 s, held = 2× until lifted,
- * swipe up = full screen, swipe down = upright / minimize.
+ * Taps, double taps, holds and vertical drags on the video, told apart by hand so a single tap
+ * answers at once: tap = controls, second tap on a side = jump 10 s, held = 2× until lifted, a
+ * vertical drag is reported as it goes ([WatchActions.drag]) and when let go ([WatchActions.release]).
  */
 private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, actions: WatchActions) {
-    val swipeMin = 56.dp.toPx()
     awaitEachGesture {
         val down = awaitFirstDown()
         val slop = viewConfiguration.touchSlop
         val deadline = down.uptimeMillis + viewConfiguration.longPressTimeoutMillis
+        val tracker = VelocityTracker()
+        tracker.addPosition(down.uptimeMillis, down.position)
         var last = down.uptimeMillis
         var dragging = false
         var held = false
@@ -731,6 +900,7 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, actions: W
             }
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
             last = change.uptimeMillis
+            tracker.addPosition(change.uptimeMillis, change.position)
             if (!change.pressed) {
                 upAt = change.position
                 break
@@ -738,13 +908,15 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, actions: W
             val d = change.position - down.position
             if (!dragging && !held && abs(d.y) > slop && abs(d.y) > abs(d.x)) dragging = true
             if (dragging) {
-                dy = d.y
+                // From where the drag was recognized: no jump of a slop's length.
+                dy = if (d.y > 0) d.y - slop else d.y + slop
+                actions.drag(dy)
                 change.consume()
             }
         }
         when {
             held -> if (canSeek) actions.hold(false)
-            dragging -> if (abs(dy) >= swipeMin) actions.swipe(up = dy < 0)
+            dragging -> actions.release(dy, tracker.calculateVelocity().y)
             upAt != null -> {
                 val width = size.width.toFloat()
                 actions.stageTap(VideoSeek.sideOf(upAt.x, width), upAt)
@@ -762,5 +934,5 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, actions: W
 
 @Composable
 internal fun RetryPill(onClick: () -> Unit) {
-    PillButton(stringResource(R.string.tube_retry), onClick = onClick, icon = Icons.Rounded.Refresh)
+    TubeButton(stringResource(R.string.tube_retry), onClick = onClick, icon = Icons.Rounded.Refresh, kind = TubeButtonKind.Tonal)
 }

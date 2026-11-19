@@ -38,53 +38,54 @@ data class SoundPalette(
 )
 
 object SoundPalettes {
+    /** FreeVideo light: paper white, cool greys, the ember for what is chosen. */
     val Light = SoundPalette(
         isLight = true,
-        ink = Color(0xFFF7F8FB),
-        surface1 = Color(0xFFEEF0F5),
+        ink = Color(0xFFFFFFFF),
+        surface1 = Color(0xFFF2F2F5),
         surface2 = Color(0xFFFFFFFF),
-        surface3 = Color(0xFFE4E7EE),
-        hairline = Color(0xFFDDE1E9),
-        text = Color(0xFF15161C),
-        textMuted = Color(0xFF5D6273),
-        textFaint = Color(0xFF9CA1B0),
-        accent = Color(0xFF4C6FFF),
-        accentPressed = Color(0xFF3B5EEE),
+        surface3 = Color(0xFFE7E7EC),
+        hairline = Color(0xFFE4E4EA),
+        text = Color(0xFF111114),
+        textMuted = Color(0xFF5E5E68),
+        textFaint = Color(0xFF9A9AA5),
+        accent = Color(0xFFE8304A),
+        accentPressed = Color(0xFFD02540),
         onAccent = Color(0xFFFFFFFF),
-        accentSoft = Color(0x1F4C6FFF),
-        mint = Color(0xFF0FA383),
+        accentSoft = Color(0x1AE8304A),
+        mint = Color(0xFFE8304A),
         onMint = Color(0xFFFFFFFF),
-        lyric = Color(0xFF3355F0),
-        danger = Color(0xFFE5484D),
+        lyric = Color(0xFFE8304A),
+        danger = Color(0xFFD92D20),
         scrim = Color(0x66000000),
-        softTop = Color(0xFFE9EEFF),
-        softBottom = Color(0xFFF4F6FD),
-        washAlpha = 0.42f,
+        softTop = Color(0xFFFFF1F2),
+        softBottom = Color(0xFFFFFAFA),
+        washAlpha = 0.34f,
     )
 
-    /** Dark, but soft: graphite surfaces, no heavy blue blocks. */
+    /** FreeVideo dark: a cinema — near-black, neutral greys (no blue cast), the picture stands out. */
     val Dark = SoundPalette(
         isLight = false,
-        ink = Color(0xFF0E0F14),
-        surface1 = Color(0xFF181A21),
-        surface2 = Color(0xFF1F222A),
-        surface3 = Color(0xFF292C36),
-        hairline = Color(0xFF2C303A),
-        text = Color(0xFFF2F3F7),
-        textMuted = Color(0xFFA0A5B5),
-        textFaint = Color(0xFF686D7E),
-        accent = Color(0xFF7C9BFF),
-        accentPressed = Color(0xFF6A8AF2),
-        onAccent = Color(0xFF0E0F14),
-        accentSoft = Color(0x297C9BFF),
-        mint = Color(0xFF86E8CE),
-        onMint = Color(0xFF0B2A24),
+        ink = Color(0xFF0B0B0E),
+        surface1 = Color(0xFF17171C),
+        surface2 = Color(0xFF1E1E24),
+        surface3 = Color(0xFF29292F),
+        hairline = Color(0xFF24242A),
+        text = Color(0xFFF4F4F6),
+        textMuted = Color(0xFFA4A4AE),
+        textFaint = Color(0xFF6C6C76),
+        accent = Color(0xFFFF4D62),
+        accentPressed = Color(0xFFEE3F55),
+        onAccent = Color(0xFFFFFFFF),
+        accentSoft = Color(0x29FF4D62),
+        mint = Color(0xFFFF4D62),
+        onMint = Color(0xFFFFFFFF),
         lyric = Color(0xFFF3DD7C),
-        danger = Color(0xFFFF6B72),
+        danger = Color(0xFFFF6B5E),
         scrim = Color(0xB3000000),
-        softTop = Color(0xFF1C2030),
-        softBottom = Color(0xFF14161D),
-        washAlpha = 0.5f,
+        softTop = Color(0xFF231417),
+        softBottom = Color(0xFF121014),
+        washAlpha = 0.46f,
     )
 }
 
@@ -92,17 +93,19 @@ object SoundPalettes {
 data class AccentDef(val id: String, val light: Color, val dark: Color, val playLight: Color = light, val playDark: Color = dark)
 
 object SoundAccents {
+    /** FreeVideo's: the ember first (the brand); FreeSong's ids are kept so a saved choice still reads. */
     val all = listOf(
-        AccentDef("blue", Color(0xFF4C6FFF), Color(0xFF7C9BFF), playLight = Color(0xFF0FA383), playDark = Color(0xFF86E8CE)),
-        AccentDef("green", Color(0xFF149E5C), Color(0xFF5FD69C)),
-        AccentDef("pink", Color(0xFFE0457B), Color(0xFFFF7AA8)),
-        AccentDef("orange", Color(0xFFEF6A1A), Color(0xFFFF9A5A)),
-        AccentDef("purple", Color(0xFF7B4DFF), Color(0xFFA88BFF)),
-        AccentDef("red", Color(0xFFE5484D), Color(0xFFFF7B7F)),
-        AccentDef("teal", Color(0xFF0E9C9C), Color(0xFF5ED8D8)),
-        AccentDef("graphite", Color(0xFF2B2E36), Color(0xFFE6E8EE)),
+        AccentDef("ember", Color(0xFFE8304A), Color(0xFFFF4D62)),
+        AccentDef("orange", Color(0xFFE8620F), Color(0xFFFF8A3D)),
+        AccentDef("gold", Color(0xFFC98A00), Color(0xFFFFC23D)),
+        AccentDef("green", Color(0xFF12945A), Color(0xFF4FD68F)),
+        AccentDef("teal", Color(0xFF0B8F9C), Color(0xFF45D3DD)),
+        AccentDef("blue", Color(0xFF2F6BFF), Color(0xFF6E98FF)),
+        AccentDef("purple", Color(0xFF7646F5), Color(0xFFA685FF)),
+        AccentDef("pink", Color(0xFFD9327A), Color(0xFFFF6FAE)),
     )
 
+    /** Ids no longer offered ("red", "graphite") fall back to the ember. */
     fun byId(id: String?): AccentDef = all.firstOrNull { it.id == id } ?: all.first()
 }
 
@@ -119,8 +122,8 @@ fun SoundPalette.withAccent(a: AccentDef): SoundPalette {
         mint = play,
         onMint = if (play.luminance() > 0.5f) Color(0xFF0E0F14) else Color.White,
         lyric = if (isLight) c else lyric,
-        softTop = if (isLight) lerp(Color.White, c, 0.10f) else lerp(Color(0xFF14161D), c, 0.14f),
-        softBottom = if (isLight) lerp(Color(0xFFF7F8FB), c, 0.03f) else Color(0xFF14161D),
+        softTop = if (isLight) lerp(Color.White, c, 0.08f) else lerp(Color(0xFF121216), c, 0.14f),
+        softBottom = if (isLight) lerp(Color.White, c, 0.025f) else Color(0xFF121216),
     )
 }
 
@@ -149,7 +152,8 @@ interface SoundColorScheme {
     val Lyric: Color get() = palette.lyric
     val Liked: Color get() = palette.mint
     val Danger: Color get() = palette.danger
-    val Success: Color get() = palette.mint
+    /** Good news (up to date): green, whatever the highlight color. */
+    val Success: Color get() = if (palette.isLight) Color(0xFF12945A) else Color(0xFF4FD68F)
     val Scrim: Color get() = palette.scrim
     val SoftTop: Color get() = palette.softTop
     val SoftBottom: Color get() = palette.softBottom

@@ -32,9 +32,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
@@ -71,11 +72,6 @@ import com.villamediana.sound.tube.feed.FeedEngine
 import com.villamediana.sound.tube.feed.TopicChip
 import com.villamediana.sound.tube.online.Kiosks
 import com.villamediana.sound.tube.online.VideoItem
-import com.villamediana.sound.ui.components.EmptyState
-import com.villamediana.sound.ui.components.FilterPill
-import com.villamediana.sound.ui.components.PillButton
-import com.villamediana.sound.ui.components.SectionHeader
-import com.villamediana.sound.ui.components.SoundWordmark
 import com.villamediana.sound.ui.theme.Dimens
 import com.villamediana.sound.ui.theme.LocalBottomInset
 import com.villamediana.sound.ui.theme.sc
@@ -154,7 +150,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                 if (continueList.isNotEmpty()) {
                     item(key = "continue") {
                         Column(Modifier.padding(top = 6.dp, bottom = 8.dp).animateItem()) {
-                            SectionHeader(title = stringResource(R.string.tube_continue))
+                            TubeSectionHeader(title = stringResource(R.string.tube_continue), modifier = Modifier.padding(top = 0.dp))
                             LazyRow(contentPadding = PaddingValues(horizontal = Dimens.Gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(continueList, key = { it.videoId }) { w ->
                                     val v = VideoItem(w.videoId, w.title, w.channelName, w.channelUrl, null, w.thumbnailUrl, w.durationMs)
@@ -169,17 +165,17 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                             }
                         }
                     }
-                    if (state.entries.isNotEmpty()) item(key = "foryou") { SectionHeader(title = stringResource(R.string.tube_for_you), modifier = Modifier.padding(top = 10.dp)) }
+                    if (state.entries.isNotEmpty()) item(key = "foryou") { TubeSectionHeader(title = stringResource(R.string.tube_for_you), modifier = Modifier.padding(top = 6.dp)) }
                 }
                 feedItems(state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen)
                 when {
                     state.loading && state.entries.isEmpty() -> items(4, key = { "sk$it" }) { SkeletonCard() }
                     state.error && state.entries.isEmpty() -> item(key = "error") {
-                        EmptyState(
+                        TubeEmpty(
                             icon = Icons.Rounded.WifiOff,
                             title = stringResource(R.string.tube_feed_error_title),
                             body = stringResource(R.string.tube_feed_error_body),
-                            action = { PillButton(stringResource(R.string.tube_retry), onClick = vm::refresh, filled = true) },
+                            action = { TubeButton(stringResource(R.string.tube_retry), onClick = vm::refresh, icon = Icons.Rounded.Refresh) },
                         )
                     }
                     // The next page is always on its way: its shape waits at the end of the list.
@@ -190,11 +186,11 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                 when {
                     state.chipLoading && state.chipEntries.isEmpty() -> items(4, key = { "csk$it" }) { SkeletonCard() }
                     state.chipError && state.chipEntries.isEmpty() -> item(key = "chipError") {
-                        EmptyState(
+                        TubeEmpty(
                             icon = Icons.Rounded.WifiOff,
                             title = stringResource(R.string.tube_feed_error_title),
                             body = stringResource(R.string.tube_topic_empty),
-                            action = { PillButton(stringResource(R.string.tube_retry), onClick = { vm.selectChip(state.chip) }, filled = true) },
+                            action = { TubeButton(stringResource(R.string.tube_retry), onClick = { vm.selectChip(state.chip) }, icon = Icons.Rounded.Refresh) },
                         )
                     }
                     state.chipLoadingMore -> items(2, key = { "cmore$it" }) { SkeletonCard() }
@@ -238,13 +234,13 @@ private fun FeedHeader(onSearch: () -> Unit, onSettings: () -> Unit) {
         Modifier
             .fillMaxWidth()
             .windowInsetsPadding(WindowInsets.statusBars)
-            .padding(start = Dimens.Gutter, end = 8.dp, top = 10.dp, bottom = 6.dp),
+            .padding(start = Dimens.Gutter, end = 8.dp, top = 8.dp, bottom = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SoundWordmark()
+        TubeWordmark()
         Spacer(Modifier.weight(1f))
-        IconButton(onClick = onSearch) { Icon(Icons.Rounded.Search, stringResource(R.string.tube_search), tint = sc.Text, modifier = Modifier.size(27.dp)) }
-        IconButton(onClick = onSettings) { Icon(Icons.Outlined.Settings, stringResource(R.string.tube_settings), tint = sc.Text, modifier = Modifier.size(25.dp)) }
+        CircleIconButton(Icons.Rounded.Search, stringResource(R.string.tube_search), onSearch, iconSize = 26.dp)
+        CircleIconButton(Icons.Outlined.Settings, stringResource(R.string.tube_settings), onSettings, iconSize = 24.dp)
     }
 }
 
@@ -288,20 +284,20 @@ private fun ChipRow(chips: List<TopicChip>, selected: TopicChip?, stuck: Boolean
     }
 }
 
-/** A chip whose colors glide between chosen and not. */
+/** A topic chip: a soft rounded tab; chosen, it turns into the page's ink (white on dark, black on light). */
 @Composable
 internal fun TubeChip(text: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (selected) sc.Accent else sc.Surface1, tween(220), label = "chipBg")
-    val fg by animateColorAsState(if (selected) sc.OnAccent else sc.TextMuted, tween(220), label = "chipFg")
+    val bg by animateColorAsState(if (selected) sc.Text else sc.Surface1, tween(220), label = "chipBg")
+    val fg by animateColorAsState(if (selected) sc.Ink else sc.Text, tween(220), label = "chipFg")
     Box(
         modifier
-            .height(36.dp)
+            .height(34.dp)
             .pressScale(interaction, 0.94f)
-            .clip(CircleShape)
+            .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 16.dp),
+            .padding(horizontal = 14.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
@@ -318,12 +314,16 @@ private fun InterestPicker(onDone: (List<String>) -> Unit) {
         Modifier
             .padding(horizontal = Dimens.Gutter, vertical = 10.dp)
             .fillMaxWidth()
-            .clip(RoundedCornerShape(22.dp))
-            .background(sc.SoftTop)
+            .clip(RoundedCornerShape(24.dp))
+            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(sc.SoftTop, sc.Surface1)))
             .padding(20.dp),
     ) {
-        Text(stringResource(R.string.tube_interests_title), style = MaterialTheme.typography.headlineSmall, color = sc.Text)
-        Spacer(Modifier.height(4.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconTile(Icons.Rounded.AutoAwesome, sc.Accent, size = 40.dp)
+            Spacer(Modifier.width(12.dp))
+            Text(stringResource(R.string.tube_interests_title), style = MaterialTheme.typography.headlineSmall, color = sc.Text)
+        }
+        Spacer(Modifier.height(8.dp))
         Text(stringResource(R.string.tube_interests_body), style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted)
         Spacer(Modifier.height(16.dp))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -333,14 +333,9 @@ private fun InterestPicker(onDone: (List<String>) -> Unit) {
         }
         Spacer(Modifier.height(18.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            PillButton(stringResource(R.string.tube_interests_done), onClick = { onDone(picked.toList()) }, filled = true, enabled = picked.isNotEmpty())
-            Spacer(Modifier.width(8.dp))
-            Text(
-                stringResource(R.string.tube_interests_skip),
-                style = MaterialTheme.typography.labelLarge,
-                color = sc.TextMuted,
-                modifier = Modifier.clip(CircleShape).clickable { onDone(emptyList()) }.padding(horizontal = 14.dp, vertical = 10.dp),
-            )
+            TubeButton(stringResource(R.string.tube_interests_done), onClick = { onDone(picked.toList()) }, enabled = picked.isNotEmpty())
+            Spacer(Modifier.width(6.dp))
+            TubeButton(stringResource(R.string.tube_interests_skip), onClick = { onDone(emptyList()) }, kind = TubeButtonKind.Ghost)
         }
     }
 }

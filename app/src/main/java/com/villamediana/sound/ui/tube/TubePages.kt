@@ -29,8 +29,8 @@ import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Share
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.WifiOff
+import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -62,8 +62,6 @@ import com.villamediana.sound.tube.online.ChannelItem
 import com.villamediana.sound.tube.online.PlaylistItem
 import com.villamediana.sound.tube.online.TubePage
 import com.villamediana.sound.tube.online.VideoItem
-import com.villamediana.sound.ui.components.EmptyState
-import com.villamediana.sound.ui.components.PillButton
 import com.villamediana.sound.ui.theme.Dimens
 import com.villamediana.sound.ui.theme.LocalBottomInset
 import com.villamediana.sound.ui.theme.sc
@@ -78,12 +76,12 @@ import kotlin.coroutines.cancellation.CancellationException
 @Composable
 fun PageTopBar(title: String, onBack: () -> Unit, modifier: Modifier = Modifier, actions: @Composable RowScope.() -> Unit = {}) {
     Row(
-        modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(60.dp).padding(start = 4.dp, end = 8.dp),
+        modifier.fillMaxWidth().windowInsetsPadding(WindowInsets.statusBars).height(58.dp).padding(start = 6.dp, end = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.tube_back), tint = sc.Text) }
-        Spacer(Modifier.width(4.dp))
-        Text(title, style = MaterialTheme.typography.titleLarge, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        CircleIconButton(Icons.AutoMirrored.Rounded.ArrowBack, stringResource(R.string.tube_back), onBack)
+        Spacer(Modifier.width(6.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         actions()
     }
 }
@@ -162,22 +160,35 @@ fun PlaylistScreen(route: TubePlaylistRoute) {
 
     Column(Modifier.fillMaxSize()) {
         PageTopBar(title.ifBlank { stringResource(R.string.tube_playlist) }, onBack = nav::back) {
-            IconButton(onClick = { shareLink(context, title, state.playlist?.url ?: route.url) }) { Icon(Icons.Rounded.Share, stringResource(R.string.tube_share), tint = sc.Text) }
+            CircleIconButton(Icons.Rounded.Share, stringResource(R.string.tube_share), { shareLink(context, title, state.playlist?.url ?: route.url) }, iconSize = 21.dp)
         }
         LazyColumn(state = list, modifier = Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
             state.playlist?.let { p ->
                 item(key = "head") {
-                    Column(Modifier.fillMaxWidth().padding(horizontal = Dimens.Gutter).padding(bottom = 12.dp)) {
+                    val cover = p.thumbnailUrl ?: state.videos.firstOrNull()?.thumbnailUrl
+                    val tint = animatedVeil(rememberThumbColor(cover))
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp)
+                            .padding(bottom = 12.dp)
+                            .clip(RoundedCornerShape(24.dp))
+                            .background(androidx.compose.ui.graphics.Brush.verticalGradient(listOf(androidx.compose.ui.graphics.lerp(sc.Surface1, tint, 0.35f), sc.Surface1)))
+                            .padding(14.dp),
+                    ) {
                         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(ThumbShape).background(sc.Surface2)) {
-                            AsyncImage(model = p.thumbnailUrl ?: state.videos.firstOrNull()?.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+                            AsyncImage(model = cover, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
                         }
                         Spacer(Modifier.height(14.dp))
                         Text(p.name, style = MaterialTheme.typography.headlineSmall, color = sc.Text)
-                        val facts = listOfNotNull(p.uploader, TubeFormat.videoCount(res, p.count)).joinToString(" · ")
-                        if (facts.isNotBlank()) Text(facts, style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted)
+                        val facts = listOfNotNull(p.uploader, TubeFormat.videoCount(res, p.count)).joinToString("  ·  ")
+                        if (facts.isNotBlank()) {
+                            Spacer(Modifier.height(2.dp))
+                            Text(facts, style = MaterialTheme.typography.bodyMedium, color = sc.TextMuted)
+                        }
                         Spacer(Modifier.height(14.dp))
                         state.videos.firstOrNull()?.let { first ->
-                            PillButton(stringResource(R.string.tube_play_all), onClick = { nav.openVideo(first) }, icon = Icons.Rounded.PlayArrow, filled = true, big = true, modifier = Modifier.fillMaxWidth())
+                            TubeButton(stringResource(R.string.tube_play_all), onClick = { nav.openVideo(first) }, icon = Icons.Rounded.PlayArrow, kind = TubeButtonKind.Inverse, big = true, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }
@@ -199,13 +210,13 @@ fun PlaylistScreen(route: TubePlaylistRoute) {
                 )
             }
             when {
-                state.loading -> item { LoadingRow(Modifier.padding(top = if (state.videos.isEmpty()) 40.dp else 0.dp)) }
+                state.loading -> items(if (state.videos.isEmpty()) 6 else 2, key = { "sk$it" }) { SkeletonRow() }
                 state.error -> item {
-                    EmptyState(
+                    TubeEmpty(
                         icon = Icons.Rounded.WifiOff,
                         title = stringResource(R.string.tube_playlist_error),
                         body = stringResource(R.string.tube_feed_error_body),
-                        action = { PillButton(stringResource(R.string.tube_retry), onClick = vm::load, filled = true) },
+                        action = { TubeButton(stringResource(R.string.tube_retry), onClick = vm::load, icon = Icons.Rounded.Refresh) },
                     )
                 }
             }
@@ -252,17 +263,12 @@ fun VideoListScreen(route: VideoListRoute) {
     Column(Modifier.fillMaxSize()) {
         PageTopBar(title, onBack = nav::back) {
             if (route.list == VideoLists.HISTORY && rows?.isNotEmpty() == true) {
-                Text(
-                    stringResource(R.string.tube_clear),
-                    style = MaterialTheme.typography.labelLarge,
-                    color = sc.TextMuted,
-                    modifier = Modifier.clip(RoundedCornerShape(50)).clickable { confirmClear = true }.padding(horizontal = 12.dp, vertical = 8.dp),
-                )
+                TubeButton(stringResource(R.string.tube_clear), onClick = { confirmClear = true }, kind = TubeButtonKind.Tonal)
             }
         }
         val items = rows
         if (items != null && items.isEmpty()) {
-            EmptyState(icon = Icons.Rounded.VideoLibrary, title = stringResource(R.string.tube_list_empty_title), body = emptyBody)
+            TubeEmpty(icon = Icons.Rounded.VideoLibrary, title = stringResource(R.string.tube_list_empty_title), body = emptyBody)
         } else {
             LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(bottom = LocalBottomInset.current)) {
                 items(items.orEmpty(), key = { it.first.id }) { (v, progress) ->

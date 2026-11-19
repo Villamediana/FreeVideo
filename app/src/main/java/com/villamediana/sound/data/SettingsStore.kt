@@ -61,7 +61,7 @@ data class Settings(
     val chordsPlayAlong: Boolean = false,
     val theme: ThemeMode = ThemeMode.DARK,
     /** Highlight color id (see [com.villamediana.sound.ui.theme.SoundAccents]). */
-    val accent: String = "purple",
+    val accent: String = "ember",
     /** Genres picked on the first Home ("O que você curte?"), ids of [com.villamediana.sound.discover.GenreCatalog]. */
     val favoriteGenres: Set<String> = emptySet(),
     /** The genre picker was answered (or skipped): Home shows the suggestions from then on. */
@@ -120,7 +120,7 @@ class SettingsStore(private val context: Context) {
             chordInstrument = p[K.chordInstrument] ?: "VIOLAO",
             chordsPlayAlong = p[K.chordsPlayAlong] ?: false,
             theme = p[K.theme]?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() } ?: ThemeMode.DARK,
-            accent = p[K.accent] ?: "purple",
+            accent = p[K.accent] ?: "ember",
             favoriteGenres = p[K.genres].orEmpty(),
             genresChosen = p[K.genresChosen] ?: false,
             listenedBeforeMs = p[K.listenedBefore] ?: 0L,
