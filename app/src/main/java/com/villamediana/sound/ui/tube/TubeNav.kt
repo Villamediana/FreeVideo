@@ -20,7 +20,10 @@ import kotlinx.serialization.Serializable
 @Serializable data object TubeSettingsRoute
 @Serializable data object SubscriptionListRoute
 
-/** The watch page. Carries what the list already showed, so the page has it before the network answers. */
+/**
+ * A video on the watch page ([WatchSheet]: over the pages, not one of them). Carries what the list
+ * already showed, so the page has it before the network answers.
+ */
 @Serializable
 data class WatchRoute(
     val id: String,
@@ -58,17 +61,30 @@ data class WatchRoute(
 /** One of the personal lists: [list] = "history", "liked" or "later". */
 @Serializable data class VideoListRoute(val list: String)
 
-/** Thin wrapper over the NavController so screens just say where to go. */
+/**
+ * Thin wrapper over the NavController so screens just say where to go. Videos open over the pages
+ * ([sheet]); going anywhere else first shrinks the video into the bar.
+ */
 @Stable
-class TubeNavigator(val controller: NavHostController) {
+class TubeNavigator internal constructor(val controller: NavHostController, internal val sheet: WatchSheet) {
 
-    /** [source]: the feed source whose card this was (the feed learns which sources the person opens). */
+    /**
+     * [source]: the feed source whose card this was (the feed learns which sources the person opens).
+     * The page grows out of the thumbnail just tapped, when there is one ([ThumbOrigin]).
+     */
     fun openVideo(video: VideoItem, startMs: Long = -1, source: com.villamediana.sound.tube.feed.FeedEngine.Source? = null) {
         if (source != null) {
             val graph = com.villamediana.sound.SoundApplication.graph
             graph.scope.launch { runCatching { graph.tube.library.recordClick(video.id, source.name) } }
         }
-        val route = WatchRoute(
+        sheet.open(routeOf(video, startMs, source), ThumbOrigin.take())
+    }
+
+    /** The player moved on by itself: the page shows the new video, open or small as it is. */
+    fun followVideo(video: VideoItem) = sheet.follow(routeOf(video, -1, null))
+
+    private fun routeOf(video: VideoItem, startMs: Long, source: com.villamediana.sound.tube.feed.FeedEngine.Source?) =
+        WatchRoute(
             id = video.id,
             title = video.title,
             channel = video.channelName,
@@ -82,22 +98,21 @@ class TubeNavigator(val controller: NavHostController) {
             startMs = startMs,
             src = source?.name,
         )
-        // One watch page at a time: a suggestion replaces the video (back goes to where it was opened from).
-        val onWatch = controller.currentBackStackEntry?.destination?.hasRoute(WatchRoute::class) == true
-        controller.navigate(route) {
-            if (onWatch) popUpTo<WatchRoute> { inclusive = true }
-            launchSingleTop = false
-        }
+
+    /** Somewhere else in the app: the video shrinks into the bar first (it goes on playing there). */
+    private fun go(route: Any, single: Boolean = false) {
+        sheet.collapse()
+        controller.navigate(route) { if (single) launchSingleTop = true }
     }
 
-    fun openChannel(url: String, name: String = "", avatar: String? = null) = controller.navigate(ChannelRoute(url, name, avatar))
+    fun openChannel(url: String, name: String = "", avatar: String? = null) = go(ChannelRoute(url, name, avatar))
     fun openChannel(c: ChannelItem) = openChannel(c.url, c.name, c.avatarUrl)
-    fun openPlaylist(p: PlaylistItem) = controller.navigate(TubePlaylistRoute(p.url, p.name))
-    fun openPlaylist(url: String) = controller.navigate(TubePlaylistRoute(url))
-    fun openSearch() = controller.navigate(TubeSearchRoute) { launchSingleTop = true }
-    fun openSettings() = controller.navigate(TubeSettingsRoute) { launchSingleTop = true }
-    fun openList(list: String) = controller.navigate(VideoListRoute(list))
-    fun openSubscriptionList() = controller.navigate(SubscriptionListRoute)
+    fun openPlaylist(p: PlaylistItem) = go(TubePlaylistRoute(p.url, p.name))
+    fun openPlaylist(url: String) = go(TubePlaylistRoute(url))
+    fun openSearch() = go(TubeSearchRoute, single = true)
+    fun openSettings() = go(TubeSettingsRoute, single = true)
+    fun openList(list: String) = go(VideoListRoute(list))
+    fun openSubscriptionList() = go(SubscriptionListRoute)
 
     /** Bottom bar: a tab keeps its own back stack and state. */
     fun switchTab(route: Any) {
@@ -115,17 +130,15 @@ class TubeNavigator(val controller: NavHostController) {
         controller.popBackStack()
     }
 
-    /** Leaves the watch page (the video goes on in the mini player). */
-    fun minimize() {
-        if (controller.currentBackStackEntry?.destination?.hasRoute(WatchRoute::class) == true) controller.popBackStack()
-    }
+    /** Leaves the watch page (the video goes on in the bar). */
+    fun minimize() = sheet.collapse()
 }
 
 val LocalTubeNav = staticCompositionLocalOf<TubeNavigator> { error("TubeNavigator not provided") }
 
-internal fun NavDestination.isWatch(): Boolean = hasRoute(WatchRoute::class)
 internal fun NavDestination.isTab(): Boolean = hasRoute(FeedRoute::class) || hasRoute(SubsRoute::class) || hasRoute(YouRoute::class)
-internal fun NavDestination.isFull(): Boolean = isWatch() || hasRoute(TubeSettingsRoute::class)
+/** A page that takes the whole screen: no bottom bar, and the video's bar stays out of the way. */
+internal fun NavDestination.isFull(): Boolean = hasRoute(TubeSettingsRoute::class)
 
 object VideoLists {
     const val HISTORY = "history"

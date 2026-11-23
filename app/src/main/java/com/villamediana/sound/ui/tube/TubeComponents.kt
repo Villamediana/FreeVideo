@@ -43,6 +43,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -66,7 +69,21 @@ internal val ThumbShape = RoundedCornerShape(16.dp)
 private val LiveRed = Color(0xFFC94F43)
 internal val SmallThumbShape = RoundedCornerShape(12.dp)
 
-/** A 16:9 frame of the video with its length (or "AO VIVO") and how far it was watched. */
+/** Where a card's thumbnail is (root coordinates): the watch page grows out of it when the card is tapped. */
+class ThumbBounds {
+    var rect: Rect? = null
+
+    /** Just before the card opens its video. */
+    fun note() {
+        rect?.let(ThumbOrigin::note)
+    }
+}
+
+/**
+ * A 16:9 frame of the video with its length (or "AO VIVO") and how far it was watched. [origin]
+ * keeps where it is on screen; [previewing]: the card waits in the middle of the screen, and the
+ * thumbnail flips through a few frames of the video.
+ */
 @Composable
 fun VideoThumb(
     video: VideoItem,
@@ -74,9 +91,17 @@ fun VideoThumb(
     progress: Float = 0f,
     shape: RoundedCornerShape = ThumbShape,
     compact: Boolean = false,
+    origin: ThumbBounds? = null,
+    previewing: Boolean = false,
 ) {
     var loaded by remember(video.thumbnailUrl) { mutableStateOf(false) }
-    Box(modifier.aspectRatio(16f / 9f).clip(shape).then(if (loaded) Modifier.background(sc.Surface2) else Modifier.shimmer())) {
+    Box(
+        modifier
+            .aspectRatio(16f / 9f)
+            .then(if (origin != null) Modifier.onGloballyPositioned { origin.rect = it.boundsInRoot() } else Modifier)
+            .clip(shape)
+            .then(if (loaded) Modifier.background(sc.Surface2) else Modifier.shimmer()),
+    ) {
         AsyncImage(
             model = video.thumbnailUrl,
             contentDescription = null,
@@ -84,6 +109,7 @@ fun VideoThumb(
             onSuccess = { loaded = true },
             modifier = Modifier.fillMaxSize(),
         )
+        if (previewing && !video.live) Flipbook(video, Modifier.fillMaxSize())
         when {
             video.live -> Badge(stringResource(R.string.tube_live), LiveRed, Color.White, compact)
             video.durationMs > 0 -> Badge(formatDuration(video.durationMs), Color.Black.copy(alpha = 0.78f), Color.White, compact)
@@ -150,15 +176,21 @@ fun VideoCard(
     onChannel: (() -> Unit)? = null,
     /** False on the channel's own page: no picture, no name (it's theirs). */
     showChannel: Boolean = true,
+    /** It waits in the middle of the screen: its thumbnail flips through the video. */
+    previewing: Boolean = false,
 ) {
     val haptic = LocalHapticFeedback.current
     val res = resources()
+    val origin = remember { ThumbBounds() }
     Column(
         modifier
             .fillMaxWidth()
             .pressable(
                 onPress = { com.villamediana.sound.SoundApplication.graph.tube.player.warm(video.id) },
-                onClick = onClick,
+                onClick = {
+                    origin.note()
+                    onClick()
+                },
                 onLongClick = {
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     onMore()
@@ -167,7 +199,7 @@ fun VideoCard(
             .padding(horizontal = Dimens.Gutter)
             .padding(top = 6.dp, bottom = 18.dp),
     ) {
-        VideoThumb(video, Modifier.fillMaxWidth(), progress = progress)
+        VideoThumb(video, Modifier.fillMaxWidth(), progress = progress, origin = origin, previewing = previewing)
         Spacer(Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.Top) {
             if (showChannel) {
@@ -205,12 +237,16 @@ fun VideoRow(
 ) {
     val haptic = LocalHapticFeedback.current
     val res = resources()
+    val origin = remember { ThumbBounds() }
     Row(
         modifier
             .fillMaxWidth()
             .pressable(
                 onPress = { com.villamediana.sound.SoundApplication.graph.tube.player.warm(video.id) },
-                onClick = onClick,
+                onClick = {
+                    origin.note()
+                    onClick()
+                },
                 onLongClick = onMore?.let { more ->
                     {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -223,7 +259,7 @@ fun VideoRow(
         verticalAlignment = Alignment.Top,
     ) {
         leading?.invoke()
-        VideoThumb(video, Modifier.width(164.dp), progress = progress, shape = SmallThumbShape, compact = true)
+        VideoThumb(video, Modifier.width(164.dp), progress = progress, shape = SmallThumbShape, compact = true, origin = origin)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f).padding(top = 1.dp)) {
             Text(video.title, style = MaterialTheme.typography.titleSmall, color = sc.Text, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -243,12 +279,16 @@ fun VideoRow(
 @Composable
 fun ShelfVideo(video: VideoItem, onClick: () -> Unit, onMore: (() -> Unit)?, modifier: Modifier = Modifier, progress: Float = 0f) {
     val haptic = LocalHapticFeedback.current
+    val origin = remember { ThumbBounds() }
     Column(
         modifier
             .width(212.dp)
             .pressable(
                 onPress = { com.villamediana.sound.SoundApplication.graph.tube.player.warm(video.id) },
-                onClick = onClick,
+                onClick = {
+                    origin.note()
+                    onClick()
+                },
                 onLongClick = onMore?.let { more ->
                     {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -257,7 +297,7 @@ fun ShelfVideo(video: VideoItem, onClick: () -> Unit, onMore: (() -> Unit)?, mod
                 },
             ),
     ) {
-        VideoThumb(video, Modifier.fillMaxWidth(), progress = progress, shape = SmallThumbShape, compact = true)
+        VideoThumb(video, Modifier.fillMaxWidth(), progress = progress, shape = SmallThumbShape, compact = true, origin = origin)
         Spacer(Modifier.height(8.dp))
         Text(video.title, style = MaterialTheme.typography.titleSmall, color = sc.Text, maxLines = 2, overflow = TextOverflow.Ellipsis)
         if (video.channelName.isNotBlank()) {

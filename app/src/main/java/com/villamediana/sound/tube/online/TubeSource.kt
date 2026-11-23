@@ -173,8 +173,25 @@ class TubeSource(private val http: OkHttpClient) {
             category = info.category?.ifBlank { null },
             related = related,
             ageLimit = info.ageLimit,
+            storyboard = storyboardOf(info),
         )
     }
+
+    /** [id]'s preview frames (shares the extraction with the page and the player); null when there are none. */
+    suspend fun storyboard(id: String): Storyboard? = io("storyboard") { storyboardOf(info(id)) }
+
+    private fun storyboardOf(info: StreamInfo): Storyboard? = runCatching {
+        val set = Storyboard.pick(info.previewFrames.orEmpty()) { it.frameWidth } ?: return@runCatching null
+        Storyboard(
+            urls = set.urls.orEmpty(),
+            frameWidth = set.frameWidth,
+            frameHeight = set.frameHeight,
+            columns = set.framesPerPageX,
+            rows = set.framesPerPageY,
+            totalCount = set.totalCount,
+            frameMs = set.durationPerFrame,
+        ).takeIf { it.usable }
+    }.getOrNull()
 
     /** What YouTube suggests after [id] (the feed's main source). */
     suspend fun related(id: String): List<VideoItem> = details(id).related

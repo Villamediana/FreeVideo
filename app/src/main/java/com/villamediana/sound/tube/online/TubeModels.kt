@@ -80,6 +80,8 @@ data class VideoDetails(
     val category: String?,
     val related: List<VideoItem>,
     val ageLimit: Int = 0,
+    /** YouTube's preview frames (the seek bar's pictures); null when it has none. */
+    val storyboard: Storyboard? = null,
 )
 
 data class CommentItem(

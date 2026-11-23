@@ -60,6 +60,19 @@ import androidx.compose.ui.semantics.Role
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.villamediana.sound.ui.components.pressScale
 import kotlinx.coroutines.delay
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.snapshotFlow
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -114,6 +127,60 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
     // A chip chosen: its page starts at the top.
     LaunchedEffect(state.chip) { if (list.firstVisibleItemIndex > 1) list.scrollToItem(1) }
 
+    // The card waiting in the middle of the screen (the list at rest): its thumbnail flips through the video.
+    // Worked out off the composition (the list's layout changes every frame it moves): only a new card recomposes.
+    var centered by remember { mutableStateOf<String?>(null) }
+    LaunchedEffect(list) {
+        snapshotFlow { if (list.isScrollInProgress) null else centerKey(list.layoutInfo) }
+            .distinctUntilChanged()
+            .collect { centered = it }
+    }
+    // Cards rise into place the first time they show (the first screenful one after the other).
+    val risen = remember { HashSet<String>() }
+
+    // Sliding the list sideways: the next / previous topic (the cards follow the finger, then the new ones come in).
+    val order = remember(chips) { listOf<TopicChip?>(null) + chips }
+    val swipe = remember { Animatable(0f) }
+    val haptic = LocalHapticFeedback.current
+    val chipNow by rememberUpdatedState(state.chip)
+    val swipeTopics = Modifier.pointerInput(order) {
+        var dx = 0f
+        detectHorizontalDragGestures(
+            onDragStart = { dx = 0f },
+            onDragCancel = { scope.launch { swipe.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 500f)) } },
+            onDragEnd = {
+                val width = size.width.toFloat()
+                val i = order.indexOf(chipNow).coerceAtLeast(0)
+                val next = if (dx < 0) i + 1 else i - 1
+                if (kotlin.math.abs(dx) > width * 0.2f && next in order.indices) {
+                    haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    scope.launch {
+                        swipe.animateTo(if (dx < 0) -width * 0.45f else width * 0.45f, tween(140))
+                        vm.selectChip(order[next])
+                        swipe.snapTo(if (dx < 0) width * 0.3f else -width * 0.3f)
+                        swipe.animateTo(0f, spring(dampingRatio = 0.85f, stiffness = 380f))
+                    }
+                } else {
+                    scope.launch { swipe.animateTo(0f, spring(dampingRatio = 0.8f, stiffness = 500f)) }
+                }
+            },
+            onHorizontalDrag = { change, amount ->
+                change.consume()
+                dx += amount
+                // At the ends there is nowhere to go: it resists.
+                val i = order.indexOf(chipNow).coerceAtLeast(0)
+                val edge = (dx > 0 && i == 0) || (dx < 0 && i == order.lastIndex)
+                scope.launch { swipe.snapTo(if (edge) dx * 0.25f else dx * 0.6f) }
+            },
+        )
+    }
+    val slide: androidx.compose.ui.graphics.GraphicsLayerScope.() -> Unit = remember(swipe) {
+        {
+            translationX = swipe.value
+            alpha = 1f - (kotlin.math.abs(swipe.value) / size.width.coerceAtLeast(1f) * 1.4f).coerceIn(0f, 0.8f)
+        }
+    }
+
     val pull = rememberPullToRefreshState()
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
     val refreshing = if (state.chip != null) state.chipLoading && state.chipEntries.isNotEmpty() else state.refreshing && state.entries.isNotEmpty()
@@ -136,7 +203,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
     ) {
         LazyColumn(
             state = list,
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().then(swipeTopics),
             contentPadding = PaddingValues(bottom = LocalBottomInset.current),
         ) {
             item(key = "header") { FeedHeader(onSearch = nav::openSearch, onSettings = nav::openSettings) }
@@ -149,7 +216,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
             if (state.chip == null) {
                 if (continueList.isNotEmpty()) {
                     item(key = "continue") {
-                        Column(Modifier.padding(top = 6.dp, bottom = 8.dp).animateItem(fadeInSpec = tween(260), fadeOutSpec = null)) {
+                        Column(Modifier.padding(top = 6.dp, bottom = 8.dp).animateItem(fadeInSpec = tween(260), fadeOutSpec = null).graphicsLayer(slide)) {
                             TubeSectionHeader(title = stringResource(R.string.tube_continue), modifier = Modifier.padding(top = 0.dp))
                             LazyRow(contentPadding = PaddingValues(horizontal = Dimens.Gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(continueList, key = { it.videoId }) { w ->
@@ -167,7 +234,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                     }
                     if (state.entries.isNotEmpty()) item(key = "foryou") { Spacer(Modifier.height(8.dp)) }
                 }
-                feedItems("v:", state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen)
+                feedItems("v:", state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen, centered = centered, risen = risen, slide = slide)
                 when {
                     state.loading && state.entries.isEmpty() -> items(4, key = { "sk$it" }) { SkeletonCard() }
                     state.error && state.entries.isEmpty() -> item(key = "error") {
@@ -182,7 +249,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                     state.entries.isNotEmpty() -> items(2, key = { "more$it" }) { SkeletonCard() }
                 }
             } else {
-                feedItems("c:" + state.chip?.label + ":", state.chipEntries, watched, nav, onMenu = { menu = it }, onSeen = {})
+                feedItems("c:" + state.chip?.label + ":", state.chipEntries, watched, nav, onMenu = { menu = it }, onSeen = {}, centered = centered, risen = risen, slide = slide)
                 when {
                     state.chipLoading && state.chipEntries.isEmpty() -> items(4, key = { "csk$it" }) { SkeletonCard() }
                     state.chipError && state.chipEntries.isEmpty() -> item(key = "chipError") {
@@ -215,8 +282,12 @@ private fun androidx.compose.foundation.lazy.LazyListScope.feedItems(
     nav: TubeNavigator,
     onMenu: (VideoMenuTarget) -> Unit,
     onSeen: (FeedEngine.Entry) -> Unit,
+    centered: String?,
+    risen: MutableSet<String>,
+    slide: androidx.compose.ui.graphics.GraphicsLayerScope.() -> Unit,
 ) {
-    items(entries, key = { keyPrefix + it.video.id }) { e ->
+    itemsIndexed(entries, key = { _, it -> keyPrefix + it.video.id }) { index, e ->
+        val key = keyPrefix + e.video.id
         // On screen for a moment: the feed notes it was shown.
         LaunchedEffect(e.video.id) {
             delay(900)
@@ -228,7 +299,11 @@ private fun androidx.compose.foundation.lazy.LazyListScope.feedItems(
             onMore = { onMenu(VideoMenuTarget(e.video, reason = e.reason)) },
             progress = watched[e.video.id]?.progress ?: 0f,
             onChannel = e.video.channelUrl?.let { url -> { nav.openChannel(url, e.video.channelName, e.video.channelAvatar) } },
-            modifier = Modifier.animateItem(fadeInSpec = tween(260), fadeOutSpec = null),
+            previewing = centered == key,
+            modifier = Modifier
+                .animateItem(fadeInSpec = null, fadeOutSpec = null)
+                .rise(key, if (index < 6) index else 0, risen)
+                .graphicsLayer(slide),
         )
     }
 }
@@ -274,9 +349,23 @@ private fun rememberChips(own: List<String>): List<TopicChip> {
 @Composable
 private fun ChipRow(chips: List<TopicChip>, selected: TopicChip?, stuck: Boolean, onSelect: (TopicChip?) -> Unit) {
     val line by animateColorAsState(if (stuck) sc.Hairline else Color.Transparent, tween(200), label = "chipLine")
+    // The chosen topic stays in sight (a swipe on the list may pick one further along).
+    val row = rememberLazyListState()
+    LaunchedEffect(selected) {
+        if (selected == null) return@LaunchedEffect
+        // Once the row is laid out: only when the chip is out of sight or cut at the edge.
+        snapshotFlow { row.layoutInfo.totalItemsCount }.first { it > 0 }
+        val index = chips.indexOf(selected) + 1
+        val info = row.layoutInfo
+        val item = info.visibleItemsInfo.firstOrNull { it.index == index }
+        if (item == null || item.offset < info.viewportStartOffset || item.offset + item.size > info.viewportEndOffset) {
+            row.animateScrollToItem((index - 1).coerceAtLeast(0))
+        }
+    }
     Column(Modifier.fillMaxWidth().background(sc.Ink).then(if (stuck) Modifier.windowInsetsPadding(WindowInsets.statusBars) else Modifier)) {
         LazyRow(
             Modifier.fillMaxWidth().padding(vertical = 8.dp),
+            state = row,
             contentPadding = PaddingValues(horizontal = Dimens.Gutter),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -346,4 +435,33 @@ private fun InterestPicker(onDone: (List<String>) -> Unit) {
 @Composable
 internal fun FadeIn(visible: Boolean, content: @Composable () -> Unit) {
     AnimatedVisibility(visible) { Box { content() } }
+}
+
+/**
+ * The first time a card shows it rises into place (a short slide up and fade); the first ones of a
+ * new list one after the other ([order]). Scrolled away and back, it is just there.
+ */
+@Composable
+private fun Modifier.rise(key: String, order: Int, risen: MutableSet<String>): Modifier {
+    val fresh = remember(key) { risen.add(key) }
+    val t = remember(key) { Animatable(if (fresh) 0f else 1f) }
+    LaunchedEffect(key) {
+        if (t.value >= 1f) return@LaunchedEffect
+        delay(order * 55L)
+        t.animateTo(1f, tween(420, easing = com.villamediana.sound.ui.theme.Motion.Emphasized))
+    }
+    val distance = with(androidx.compose.ui.platform.LocalDensity.current) { 26.dp.toPx() }
+    return graphicsLayer {
+        alpha = t.value
+        translationY = (1f - t.value) * distance
+    }
+}
+
+/** The feed card nearest the middle of the list's window (its key), if any. */
+private fun centerKey(info: androidx.compose.foundation.lazy.LazyListLayoutInfo): String? {
+    val middle = (info.viewportStartOffset + info.viewportEndOffset) / 2
+    return info.visibleItemsInfo
+        .filter { (it.key as? String)?.let { k -> k.startsWith("v:") || k.startsWith("c:") } == true }
+        .minByOrNull { kotlin.math.abs(it.offset + it.size / 2 - middle) }
+        ?.key as? String
 }

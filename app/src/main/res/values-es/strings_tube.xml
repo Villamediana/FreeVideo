@@ -225,4 +225,7 @@
         <item quantity="other">canales</item>
     </plurals>
     <string name="tube_speed">Velocidad</string>
+    <string name="tube_zoom_fill">Llenar la pantalla</string>
+    <string name="tube_zoom_fit">Video completo</string>
+    <string name="tube_open_video">Abrir el video</string>
 </resources>

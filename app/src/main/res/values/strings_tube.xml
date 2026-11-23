@@ -236,4 +236,7 @@
         <item quantity="other">canais</item>
     </plurals>
     <string name="tube_speed">Velocidade</string>
+    <string name="tube_zoom_fill">Preencher a tela</string>
+    <string name="tube_zoom_fit">Vídeo inteiro</string>
+    <string name="tube_open_video">Abrir o vídeo</string>
 </resources>

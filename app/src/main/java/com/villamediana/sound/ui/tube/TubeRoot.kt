@@ -1,21 +1,30 @@
 package com.villamediana.sound.ui.tube
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.scaleOut
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import kotlinx.coroutines.launch
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -26,7 +35,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -46,10 +54,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Subscriptions
 import androidx.compose.material.icons.outlined.VideoLibrary
-import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Home
-import androidx.compose.material.icons.rounded.Pause
-import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Subscriptions
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material3.Icon
@@ -68,7 +73,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -86,7 +90,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
-import coil3.compose.AsyncImage
 import com.villamediana.sound.R
 import com.villamediana.sound.SoundApplication
 import com.villamediana.sound.tube.online.TubeLink
@@ -97,7 +100,6 @@ import com.villamediana.sound.ui.nav.Inbound
 import com.villamediana.sound.ui.theme.LocalBottomInset
 import com.villamediana.sound.ui.theme.Motion
 import com.villamediana.sound.ui.theme.sc
-import com.villamediana.sound.ui.video.rememberVideoProgress
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
 
@@ -105,13 +107,22 @@ import kotlinx.coroutines.flow.map
 @Composable
 fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     val controller = rememberNavController()
-    val nav = remember(controller) { TubeNavigator(controller) }
+    val shellScope = rememberCoroutineScope()
+    // The video over the pages: from the bar to the watch page and back, one piece.
+    val sheet = remember { WatchSheet(shellScope) }
+    val nav = remember(controller) { TubeNavigator(controller, sheet) }
     val tube = SoundApplication.graph.tube
     val pState by tube.player.state.collectAsState()
     val entry by controller.currentBackStackEntryAsState()
     val dest = entry?.destination
     val full = dest?.isFull() == true
-    val showMini = pState.active && !full
+    val showMini = pState.active && sheet.route != null && !full
+    // Closed (the bar's ×, a swipe, the notification): the page goes with it.
+    var wasActive by remember { mutableStateOf(false) }
+    LaunchedEffect(pState.active) {
+        if (wasActive && !pState.active) sheet.close()
+        wasActive = pState.active
+    }
     val background by remember { tube.settings.prefs.map { it.keepPlayingInBackground } }.collectAsState(initial = false)
 
     // Links shared to FreeVideo or opened from the browser: the video, channel or playlist.
@@ -142,7 +153,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     // Full screen belongs to the shell: from one video to the next it stays, off the watch pages it lets go.
     val watchMode = remember(activity) { WatchMode(activity) }
     val landscape = androidx.compose.ui.platform.LocalConfiguration.current.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-    WatchModeEffects(activity, watchMode, onWatch = dest?.isWatch() == true, landscape = landscape)
+    WatchModeEffects(activity, watchMode, onWatch = sheet.open, landscape = landscape)
     val pipEnabled by remember { tube.settings.prefs.map { it.pictureInPicture } }.collectAsState(initial = true)
     val inPip = rememberPipMode(activity, tube.player)
     PipParams(activity, pState, pipEnabled)
@@ -154,6 +165,28 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     val barHidden = full || dest?.hasRoute(TubeSearchRoute::class) == true
     val bar = if (barHidden) 0.dp else BAR_HEIGHT
     val mini by animateDpAsState(if (showMini) MINI_HEIGHT + 3.dp else 0.dp, label = "mini")
+    // Scrolling down a page tucks the tabs away (more room for the videos); scrolling up brings them back.
+    val tuck = remember { Animatable(0f) }
+    LaunchedEffect(dest) { tuck.animateTo(0f, tween(200)) }
+    val tuckOnScroll = remember(tuck) {
+        object : androidx.compose.ui.input.nestedscroll.NestedScrollConnection {
+            override fun onPostScroll(consumed: Offset, available: Offset, source: androidx.compose.ui.input.nestedscroll.NestedScrollSource): Offset {
+                val dy = consumed.y
+                if (dy < -6f && tuck.targetValue != 1f) shellScope.launch { tuck.animateTo(1f, tween(220)) }
+                else if (dy > 6f && tuck.targetValue != 0f) shellScope.launch { tuck.animateTo(0f, tween(220)) }
+                return Offset.Zero
+            }
+        }
+    }
+    val density = LocalDensity.current
+    val barPx = with(density) { (BAR_HEIGHT + 1.dp).toPx() }
+    val navPx = with(density) { navBar.toPx() }
+    // Where the video's bar sits: on the tabs (as they tuck away, it goes down with them), or off the screen on a full page.
+    val miniOut by animateFloatAsState(if (showMini) 0f else 1f, tween(220), label = "miniOut")
+    val miniHeightPx = with(density) { (MINI_HEIGHT + 3.dp).toPx() }
+    val miniBottom: () -> Float = remember(barHidden, navPx, barPx, miniHeightPx) {
+        { navPx + (if (barHidden) 0f else barPx * (1f - tuck.value)) - miniOut * (miniHeightPx + navPx + barPx + 24f) }
+    }
 
     CompositionLocalProvider(
         LocalInPip provides inPip,
@@ -162,36 +195,38 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
         LocalBottomInset provides navBar + bar + mini + 12.dp,
     ) {
         Box(Modifier.fillMaxSize().background(sc.Ink)) {
+            // While the page is open the pages under it are out of TalkBack's way.
+            val pageOpen by remember { derivedStateOf { sheet.route != null && sheet.expansion.value > 0.9f } }
             NavHost(
                 navController = controller,
                 startDestination = FeedRoute,
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .nestedScroll(tuckOnScroll)
+                    .then(if (pageOpen) Modifier.clearAndSetSemantics { } else Modifier),
                 enterTransition = {
                     when {
-                        targetState.destination.isWatch() -> slideInVertically(tween(PAGE_MS, easing = Motion.Emphasized)) { it } + fadeIn(tween(200))
                         initialState.destination.isTab() && targetState.destination.isTab() -> fadeIn(tween(220))
                         else -> slideInHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { it }
                     }
                 },
                 exitTransition = {
                     when {
-                        targetState.destination.isWatch() -> ExitTransition.KeepUntilTransitionsFinished
                         initialState.destination.isTab() && targetState.destination.isTab() -> fadeOut(tween(160))
                         else -> slideOutHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { -it / 4 }
                     }
                 },
+                // Back (also as the finger draws the predictive back): the page goes right, the one under it comes in.
                 popEnterTransition = {
                     when {
-                        initialState.destination.isWatch() -> EnterTransition.None
                         initialState.destination.isTab() && targetState.destination.isTab() -> fadeIn(tween(220))
-                        else -> slideInHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { -it / 4 }
+                        else -> slideInHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { -it / 4 } + fadeIn(tween(PAGE_MS), initialAlpha = 0.6f)
                     }
                 },
                 popExitTransition = {
                     when {
-                        initialState.destination.isWatch() -> slideOutVertically(tween(PAGE_MS, easing = Motion.Emphasized)) { it } + fadeOut(tween(260))
                         initialState.destination.isTab() && targetState.destination.isTab() -> fadeOut(tween(160))
-                        else -> slideOutHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { it }
+                        else -> slideOutHorizontally(tween(PAGE_MS, easing = Motion.Emphasized)) { it } + scaleOut(tween(PAGE_MS), targetScale = 0.94f)
                     }
                 },
             ) {
@@ -199,7 +234,6 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
                 composable<SubsRoute> { Page { SubsScreen() } }
                 composable<YouRoute> { Page { LibraryScreen() } }
                 composable<TubeSearchRoute> { Page { TubeSearchScreen() } }
-                composable<WatchRoute> { Page { WatchScreen(it.toRoute()) } }
                 composable<ChannelRoute> { Page { ChannelScreen(it.toRoute()) } }
                 composable<TubePlaylistRoute> { Page { PlaylistScreen(it.toRoute()) } }
                 composable<VideoListRoute> { Page { VideoListScreen(it.toRoute()) } }
@@ -207,6 +241,22 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
                 composable<TubeSettingsRoute> { Page { TubeSettingsScreen() } }
             }
 
+            Column(
+                Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .graphicsLayer { translationY = tuck.value * (barPx + navPx) },
+            ) {
+                AnimatedVisibility(!barHidden, enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
+                    BottomBar(dest, nav)
+                }
+            }
+            // The video: the bar over the tabs, or the whole page.
+            sheet.route?.let { route ->
+                key(route.id) {
+                    WatchStore(route.id) { WatchScreen(route, sheet, miniBottom) }
+                }
+            }
             if (inPip) {
                 // Floating window: only the video (the pages stay composed underneath, untouched).
                 PipStage(tube.player)
@@ -214,15 +264,6 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
             }
             // A new version on GitHub: the quiet check, the sheet and Android's install screens.
             com.villamediana.sound.ui.update.UpdateHost()
-            Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth()) {
-                AnimatedVisibility(showMini, enter = fadeIn(tween(220)) + slideInVertically { it / 2 }, exit = fadeOut(tween(160))) {
-                    MiniPlayer(pState, tube.player, onOpen = { pState.video?.let { nav.openVideo(it) } })
-                }
-                AnimatedVisibility(!barHidden, enter = fadeIn(tween(200)), exit = fadeOut(tween(120))) {
-                    BottomBar(dest, nav)
-                }
-                if (barHidden && !full) Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars))
-            }
         }
     }
 }
@@ -234,7 +275,6 @@ internal object SearchInbox {
 
 private const val PAGE_MS = 320
 private val BAR_HEIGHT = 64.dp
-private val MINI_HEIGHT = 74.dp
 
 @Composable
 private fun Page(color: Color = sc.Ink, content: @Composable () -> Unit) {
@@ -355,76 +395,19 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, i
     }
 }
 
-// ------------------------------------------------------------------ mini player
+// ------------------------------------------------------------------ the video's own models
 
 /**
- * The video going on while browsing: a straight bar across the screen, over the tabs. On the left the
- * video's picture (the video itself while it plays; its thumbnail, with a play mark, while paused),
- * then title and channel, a big play/pause and close. The line along its bottom is how far it is.
- * Tap it (or push it up) to come back to the video; push it to a side to close it.
+ * The watch page's view models live as long as its video is open (page or bar) and go with it: a
+ * store per video, cleared when another video takes its place or the video is closed.
  */
-@OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
-private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -> Unit) {
-    val video = state.video ?: return
-    val exo by player.player.collectAsState()
-    // A thin line: once a second is plenty (fewer redraws while browsing).
-    val progress = rememberVideoProgress(exo, tickMs = 1_000)
-    val accent = sc.Accent
-    val track = sc.Hairline
-    val playLabel = stringResource(if (state.playing) R.string.video_pause else R.string.video_play)
-    Column(Modifier.fillMaxWidth().miniSwipe(onOpen = onOpen, onClose = player::close).background(sc.Surface2)) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(sc.Hairline))
-        Row(
-            Modifier.fillMaxWidth().height(MINI_HEIGHT).clickable(onClick = onOpen),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(Modifier.fillMaxHeight().aspectRatio(16f / 9f).background(Color.Black), contentAlignment = Alignment.Center) {
-                val p = exo
-                var cover = true
-                if (p != null && !LocalInPip.current) {
-                    val ratio = state.aspectRatio.takeIf { it.isFinite() && it > 0f } ?: (16f / 9f)
-                    Box(Modifier.aspectRatio(ratio)) {
-                        // A texture (not a SurfaceView): it stays inside the bar while the pages move.
-                        androidx.media3.ui.compose.PlayerSurface(player = p, modifier = Modifier.fillMaxSize(), surfaceType = androidx.media3.ui.compose.SURFACE_TYPE_TEXTURE_VIEW)
-                    }
-                    // Until the video draws its first frame here, the thumbnail stands in (never a black box).
-                    cover = androidx.media3.ui.compose.state.rememberPresentationState(p).coverSurface
-                }
-                if (cover || !state.playing) {
-                    AsyncImage(model = video.thumbnailUrl, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-                }
-                if (!state.playing) {
-                    Box(
-                        Modifier.fillMaxSize().background(Color.Black.copy(alpha = 0.32f)).clickable(onClickLabel = playLabel, onClick = player::togglePlayPause),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(34.dp))
-                    }
-                }
-            }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(video.title, style = MaterialTheme.typography.titleMedium, color = sc.Text, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Spacer(Modifier.height(3.dp))
-                Text(video.channelName, style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            CircleIconButton(
-                if (state.playing) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                playLabel,
-                player::togglePlayPause,
-                size = 52.dp,
-                iconSize = 34.dp,
-            )
-            CircleIconButton(Icons.Rounded.Close, stringResource(R.string.tube_close), player::close, tint = sc.TextMuted, size = 48.dp, iconSize = 24.dp)
-            Spacer(Modifier.width(4.dp))
+private fun WatchStore(id: String, content: @Composable () -> Unit) {
+    val owner = remember(id) {
+        object : androidx.lifecycle.ViewModelStoreOwner {
+            override val viewModelStore = androidx.lifecycle.ViewModelStore()
         }
-        Box(
-            Modifier.fillMaxWidth().height(2.dp).drawBehind {
-                drawRect(track)
-                val total = progress.durationMs
-                if (total > 0) drawRect(accent, size = size.copy(width = size.width * (progress.positionMs.toFloat() / total).coerceIn(0f, 1f)))
-            },
-        )
     }
+    DisposableEffect(owner) { onDispose { owner.viewModelStore.clear() } }
+    CompositionLocalProvider(androidx.lifecycle.viewmodel.compose.LocalViewModelStoreOwner provides owner) { content() }
 }

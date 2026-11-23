@@ -91,8 +91,17 @@ class TubeScreensTest {
         waitFor("Canal de teste")
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription(str(R.string.tube_minimize))).fetchSemanticsNodes().isNotEmpty() || rule.onAllNodes(hasText(str(R.string.video_error_title))).fetchSemanticsNodes().isNotEmpty() }
 
-        // Minimize: the mini player shows the video over the tabs.
-        rule.runOnIdle { }
-        rule.onAllNodesWithContentDescription(str(R.string.tube_close)).fetchSemanticsNodes()
+        // Minimize: the page shrinks into the bar over the tabs (title, play and close), the tabs come back.
+        rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).fetchSemanticsNodes().firstOrNull()?.let {
+            rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).onFirst().performClick()
+            rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription(str(R.string.tube_close))).fetchSemanticsNodes().isNotEmpty() }
+            rule.onAllNodesWithContentDescription(str(R.string.tube_tab_home)).onFirst().assertExists()
+            val playOrPause = rule.onAllNodes(hasContentDescription(str(R.string.video_play))).fetchSemanticsNodes().size +
+                rule.onAllNodes(hasContentDescription(str(R.string.video_pause))).fetchSemanticsNodes().size
+            assert(playOrPause > 0) { "the bar has its play / pause" }
+            // Close from the bar: the video and its page are gone.
+            rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performClick()
+            rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription(str(R.string.tube_close))).fetchSemanticsNodes().isEmpty() }
+        }
     }
 }

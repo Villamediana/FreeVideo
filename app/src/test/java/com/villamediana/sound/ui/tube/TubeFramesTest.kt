@@ -146,6 +146,14 @@ class TubeFramesTest {
         rule.onAllNodesWithText(title).onFirst().performClick()
         settle(7_000)
         shot("09-watch")
+        // The speed, from its pill over the video (when the video plays here).
+        rule.onAllNodesWithContentDescription(str(R.string.tube_speed), substring = true).fetchSemanticsNodes().firstOrNull()?.let {
+            rule.onAllNodesWithContentDescription(str(R.string.tube_speed), substring = true).onFirst().performClick()
+            settle(800)
+            shot("09a-speed")
+            rule.onRoot().performClick()
+            settle(600)
+        }
         rule.onRoot().performTouchInput { swipeUp(startY = height * 0.9f, endY = height * 0.55f, durationMillis = 300) }
         settle(1_000)
         shot("09b-watch-scrolled")

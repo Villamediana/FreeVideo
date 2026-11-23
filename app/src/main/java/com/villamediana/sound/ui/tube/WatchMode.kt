@@ -28,6 +28,9 @@ internal class WatchMode(activity: Activity?) {
     var tall by mutableStateOf(false)
         private set
 
+    /** Full screen fills the whole screen (pinched open), for the next videos too, until pinched back. */
+    var fill by mutableStateOf(false)
+
     val turn = WatchTurn(activity)
 
     /** Full screen for a video of this [ratio] (width / height). */
