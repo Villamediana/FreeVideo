@@ -180,7 +180,7 @@ fun TubeProfileScreen() {
                             Spacer(Modifier.width(14.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(stringResource(R.string.tube_computer), style = MaterialTheme.typography.titleMedium, color = sc.Text)
-                                Text("freevideo.simplyonegoal.com/web", style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
+                                Text("freevideo.simplyonegoal.com", style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
                             }
                             Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.tube_computer_link), tint = sc.Accent)
                         }

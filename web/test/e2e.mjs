@@ -25,9 +25,10 @@ const web = createWeb({ publicDir: path.join(here, '..', 'public') });
 const listen = (server) => new Promise((r) => server.listen(0, '127.0.0.1', () => r(server.address().port)));
 const relayPort = await listen(relay.server);
 const webPort = await listen(web.server);
-// O "túnel": /web vai pra web, o resto pro relay.
+// O "túnel" (o mesmo caminho que está no novelo.yml): o que é do relay vai pra ele, o resto pra web.
+const RELAY = /^\/(v1|avatars|\.well-known)(\/|$)/;
 const front = http.createServer((req, res) => {
-  const port = req.url === '/web' || req.url.startsWith('/web/') ? webPort : relayPort;
+  const port = RELAY.test(new URL(req.url, 'http://x').pathname) ? relayPort : webPort;
   const up = http.request({ host: '127.0.0.1', port, path: req.url, method: req.method, headers: req.headers }, (r) => {
     res.writeHead(r.statusCode, r.headers);
     r.pipe(res);
@@ -57,8 +58,8 @@ await api('PATCH', '/v1/me', { token: phone.token, body: { name: 'Miguel' } });
 const raw = globalThis.crypto.getRandomValues(new Uint8Array(32));
 const phoneKey = await globalThis.crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 const now = Date.now();
-const found = (await (await fetch(`${base}/web/api/search?q=${encodeURIComponent('receita pão caseiro')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
-const tech = (await (await fetch(`${base}/web/api/search?q=${encodeURIComponent('review celular')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
+const found = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('receita pão caseiro')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
+const tech = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('review celular')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
 const w = (x, i, frac) => ({ i: x.id, t: x.title, cn: x.channelName, cu: x.channelUrl, th: x.thumbnailUrl, d: 600_000, p: Math.round(600_000 * frac), w: Math.round(600_000 * Math.max(frac, 0.5)), n: 1, f: now - i * 3_600_000, l: now - i * 3_600_000 });
 const content = {
   h: [...found.slice(0, 5).map((x, i) => w(x, i, i === 0 ? 0.4 : 0.95)), ...tech.slice(0, 4).map((x, i) => w(x, i + 5, 0.9))],
@@ -79,13 +80,13 @@ page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error' && !/youtube|ytimg|googlevideo|doubleclick|google|ggpht/.test(m.text())) errors.push(m.text()); });
 const shot = async (name) => page.screenshot({ path: path.join(shots, `${name}.png`) });
 
-await page.goto(`${base}/web/`);
+await page.goto(`${base}/`);
 await page.waitForSelector('.qr[data-code]', { timeout: 20_000 });
 await page.waitForTimeout(400);
 await shot('01-ligar');
 const url = await page.getAttribute('.qr', 'data-code');
 const m = /#([A-Za-z0-9_-]{22})\.([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]{22})$/.exec(url);
-check(!!m && url.startsWith(`${base}/web/link#`), 'o QR code tem o endereço, a chave e o segredo');
+check(!!m && url.startsWith(`${base}/link#`), 'o QR code tem o endereço, a chave e o segredo');
 const wrapped = await lock.wrapLink(m[2], m[1], m[3], { user: phone.id, key: raw, owner: 'Pixel 8' });
 check((await api('POST', `/v1/link/${m[1]}/approve`, { token: phone.token, body: { wrapped, owner: 'Pixel 8' } })).status === 200, 'o celular aprova');
 await page.waitForSelector('.vgrid .vcard', { timeout: 60_000 });
@@ -166,7 +167,7 @@ const left = await page.evaluate(async () => (await indexedDB.databases()).filte
 check(left === 0, 'e nada fica no navegador');
 
 const p2 = await ctx.newPage();
-await p2.goto(`${base}/web/`);
+await p2.goto(`${base}/`);
 await p2.click('.text-btn');
 await p2.fill('.code-form input', phone.code.toLowerCase());
 await p2.click('.code-form button[type=submit]');

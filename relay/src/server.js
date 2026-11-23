@@ -393,11 +393,6 @@ export function createRelay({ dataDir = resolve('data'), clock = Date.now, log =
         res.end(req.method === 'HEAD' ? undefined : ASSET_LINKS);
         return;
       }
-      if (req.method === 'GET' && url.pathname === '/') {
-        res.writeHead(302, { ...SECURITY_HEADERS, location: '/web/', 'cache-control': 'no-store' });
-        res.end();
-        return;
-      }
       const avatar = req.method === 'GET' && url.pathname.match(/^\/avatars\/([a-z0-9]+)\.jpg$/);
       if (avatar) {
         let img;

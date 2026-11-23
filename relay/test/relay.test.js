@@ -114,10 +114,9 @@ test('o banco guarda só o básico', async () => {
   db.close();
 });
 
-test('o App Link do QR code, a raiz vai pra web, http é recusado, limites', async () => {
+test('o App Link do QR code, http é recusado, limites', async () => {
   const al = await api('GET', '/.well-known/assetlinks.json');
   assert.equal(al.json[0].target.package_name, 'com.villamediana.video');
-  assert.equal((await fetch(base + '/', { redirect: 'manual' })).headers.get('location'), '/web/');
   assert.equal((await api('GET', '/v1/health', { headers: { 'x-forwarded-proto': 'http' } })).json.error, 'https_only');
   let last;
   for (let i = 0; i < 21; i++) last = await api('POST', '/v1/accounts', { body: {}, headers: { 'cf-connecting-ip': '203.0.113.7' } });
