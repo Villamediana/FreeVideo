@@ -13,8 +13,9 @@ import { Store, sha256 } from './db.js';
 import { cleanJpeg } from './jpeg.js';
 import { cleanDisplayName, normalizeUsername, randomIdentity } from './names.js';
 import { Computers } from './computers.js';
+import { Passes } from './pass.js';
 
-export const VERSION = '2.0.0';
+export const VERSION = '2.1.0';
 const JSON_LIMIT = 64 * 1024;
 const AVATAR_LIMIT = 600 * 1024;
 const VAULT_BODY_LIMIT = 6 * 1024 * 1024;
@@ -99,6 +100,7 @@ export function createRelay({ dataDir = resolve('data'), clock = Date.now, log =
   mkdirSync(join(dataDir, 'avatars'), { recursive: true });
   const store = new Store(join(dataDir, 'freevideo.db'));
   const computers = new Computers(store.db, clock);
+  const passes = new Passes({ clock });
   const limits = {
     accounts: new Limiter(20, HOUR, clock),
     accountsAll: new Limiter(newAccountsPerHour, HOUR, clock),
@@ -204,6 +206,14 @@ export function createRelay({ dataDir = resolve('data'), clock = Date.now, log =
   const route = (method, pattern, handler) => routes.push({ method, pattern, handler });
 
   route('GET', /^\/v1\/health$/, () => ({ ok: true, version: VERSION, time: clock() }));
+
+  // A ponte do servidor web (o /api): só com passe, e o passe só pra computador ligado (ver pass.js).
+  route('GET', /^\/v1\/pass-key$/, () => ({ key: passes.publicKey }));
+  route('GET', /^\/v1\/pass$/, (req) => {
+    auth(req, { computer: true });
+    if (!req.computer) throw new HttpError(403, 'computer_only');
+    return passes.issue(req.computer.id);
+  });
 
   route('POST', /^\/v1\/accounts$/, async (req) => {
     if (!limits.accounts.take(ipOf(req)) || !limits.accountsAll.take('all')) throw new HttpError(429, 'slow_down');

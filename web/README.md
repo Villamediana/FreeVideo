@@ -12,7 +12,17 @@ celular a página só diz pra baixar o app.
   vão pro histórico como no app; sai da página do vídeo e ele segue pequeno no canto.
 - **A ponte** (`server/`): busca, vídeo (sem o player), comentários, canal, playlist, sugestões e as
   novidades dos canais pelo RSS; cache na memória, limite por IP, nada em log.
-
+- **O passe da ponte** (1.6): a ponte só atende computador ligado. O relay dá um passe assinado
+  (Ed25519, `GET /v1/pass`, pedido assinado pelo computador, vale 2 h; `relay/src/pass.js`); a ponte
+  confere com a chave pública que pede ao relay dentro da máquina (`GET /v1/pass-key`,
+  `server/pass.js`, `RELAY_URL`, padrão `http://127.0.0.1:3990`). Relay reiniciado = chave nova: a
+  página pede outro passe sozinha. Limites: por IP (400/min) e por computador (400 pedidos/min, 240
+  idas ao YouTube/min fora do cache — as novidades das inscrições contam um por canal —, 6 ao mesmo
+  tempo). **Deploy: relay antes da web.**
+- **Abrindo um vídeo** (1.6): no lugar do preto, a capa escurecida e o "carregando" até a imagem
+  aparecer; sem poder tocar sozinho (ou travado 12 s), um botão de tocar. O mesmo cuidado do FreeSong
+  com o frame do YouTube (`src/core/youtube.js`, testado em `test/youtube.test.js`). As prateleiras
+  mostram uma linha só (quantos couberem).
 ## Rodar e testar
 
 ```bash

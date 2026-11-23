@@ -94,7 +94,7 @@ export function Home({ chip }) {
       {!chip && cont.length ? (
         <section className="shelf">
           <h2>{app.t('continueWatching')}</h2>
-          <Grid>{cont.slice(0, 4).map((x) => <VideoCard key={x.id} v={x} source="continue" />)}</Grid>
+          <Grid row>{cont.slice(0, 8).map((x) => <VideoCard key={x.id} v={x} source="continue" />)}</Grid>
         </section>
       ) : null}
       <Grid>{items.map((x) => <VideoCard key={x.id} v={x} source={x._reason?.source ?? 'topic'} />)}</Grid>

@@ -1,14 +1,11 @@
 package com.villamediana.sound.ui.tube
 
-import android.content.ClipData
-import android.content.ClipboardManager
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -27,15 +24,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.KeyboardArrowRight
 import androidx.compose.material.icons.rounded.Computer
-import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.DeleteOutline
 import androidx.compose.material.icons.rounded.Edit
-import androidx.compose.material.icons.rounded.Key
 import androidx.compose.material.icons.rounded.Person
 import androidx.compose.material.icons.rounded.PhotoCamera
 import androidx.compose.material.icons.rounded.QrCodeScanner
-import androidx.compose.material.icons.rounded.Refresh
-import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -78,9 +71,9 @@ import com.villamediana.sound.ui.theme.SoundColors as sc
 import kotlinx.coroutines.launch
 
 /**
- * The profile: photo, name and @ (the @ is the identifier and stays), the recovery code (it brings the
- * profile and everything in its vault to another phone), another phone's code and deleting the
- * profile (the computers linked are in Ajustes). Short labels, no paragraphs.
+ * The profile: photo, name and @ (the @ is the identifier and stays) and deleting the profile. The
+ * recovery code, another phone's code and the computers linked are in Ajustes ([AccountRows]).
+ * Short labels, no paragraphs.
  */
 @Composable
 fun TubeProfileScreen() {
@@ -88,7 +81,6 @@ fun TubeProfileScreen() {
     val hub = SoundApplication.graph.tube.account
     val account = hub.account
     val me by account.me.collectAsState()
-    val code by account.recoveryCode.collectAsState()
     val status by account.status.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -97,7 +89,6 @@ fun TubeProfileScreen() {
     var framing by remember { mutableStateOf<android.graphics.Bitmap?>(null) }
     var photoBusy by remember { mutableStateOf(false) }
     var naming by remember { mutableStateOf(false) }
-    var recovering by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) { account.refresh() }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
@@ -139,46 +130,13 @@ fun TubeProfileScreen() {
                 }
             }
             if (me != null) {
-                item(key = "code") {
-                    Card {
-                        Column(Modifier.fillMaxWidth().padding(18.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                IconTile(Icons.Rounded.Key, Pastel.Honey, size = 30.dp)
-                                Spacer(Modifier.width(10.dp))
-                                Text(stringResource(R.string.tube_profile_code), style = MaterialTheme.typography.titleMedium, color = sc.Text)
-                            }
-                            Spacer(Modifier.height(14.dp))
-                            Text(
-                                code ?: "····-····-····-····",
-                                style = MaterialTheme.typography.titleLarge.copy(fontFamily = FontFamily.Monospace, letterSpacing = 1.5.sp),
-                                color = sc.Text,
-                            )
-                            Spacer(Modifier.height(14.dp))
-                            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                                if (code != null) {
-                                    TubeButton(stringResource(R.string.tube_profile_copy), icon = Icons.Rounded.ContentCopy, onClick = {
-                                        context.getSystemService(ClipboardManager::class.java)?.setPrimaryClip(ClipData.newPlainText("FreeVideo", code))
-                                        toast(context.getString(R.string.tube_profile_copied))
-                                    })
-                                }
-                                TubeButton(stringResource(R.string.tube_profile_new_code), icon = Icons.Rounded.Refresh, kind = TubeButtonKind.Tonal, onClick = {
-                                    scope.launch { hub.newRecoveryCode().onFailure { toast(context.getString(R.string.tube_profile_error)) } }
-                                })
-                            }
-                        }
-                    }
-                }
                 item(key = "more") {
                     Card {
-                        ProfileRow(Icons.Rounded.SwapHoriz, Pastel.Sage, stringResource(R.string.tube_profile_use_code)) { recovering = true }
-                        Box(Modifier.fillMaxWidth().padding(start = 68.dp).height(1.dp).background(sc.Hairline))
                         ProfileRow(Icons.Rounded.DeleteOutline, Pastel.Clay, stringResource(R.string.tube_profile_delete), danger = true) { deleting = true }
                     }
                 }
             } else if (status == AccountStatus.READY || status == AccountStatus.LOADING) {
                 item(key = "wait") { Box(Modifier.fillMaxWidth().padding(32.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(color = sc.Accent) } }
-            } else {
-                item(key = "use") { Card { ProfileRow(Icons.Rounded.SwapHoriz, Pastel.Sage, stringResource(R.string.tube_profile_use_code)) { recovering = true } } }
             }
             item(key = "end") { Spacer(Modifier.height(LocalBottomInset.current + 24.dp)) }
         }
@@ -200,7 +158,6 @@ fun TubeProfileScreen() {
         )
     }
     if (naming) me?.let { NameDialog(it.name, onDismiss = { naming = false }) }
-    if (recovering) CodeDialog(onDismiss = { recovering = false })
     if (deleting) {
         AlertDialog(
             onDismissRequest = { deleting = false },
@@ -300,44 +257,6 @@ private fun NameDialog(current: String, onDismiss: () -> Unit) {
                     busy = false
                 }
             }) { Text(stringResource(R.string.save), color = sc.Accent) }
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.tube_cancel), color = sc.TextMuted) } },
-    )
-}
-
-/** Another phone's code: that profile (and its history, subscriptions, saved videos) comes here. */
-@Composable
-private fun CodeDialog(onDismiss: () -> Unit) {
-    val hub = SoundApplication.graph.tube.account
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    var code by remember { mutableStateOf("") }
-    var error by remember { mutableStateOf(false) }
-    var busy by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = sc.Surface2,
-        shape = RoundedCornerShape(26.dp),
-        title = { Text(stringResource(R.string.tube_profile_use_code), color = sc.Text) },
-        text = {
-            Column {
-                Field(code, { code = it.uppercase(); error = false }, placeholder = "7K2Q-M9XD-4TFA-H3RB", mono = true)
-                if (error) Text(stringResource(R.string.tube_profile_code_wrong), color = sc.Danger, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 8.dp))
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = !busy && code.isNotBlank(), onClick = {
-                busy = true
-                scope.launch {
-                    hub.recover(code)
-                        .onSuccess { onDismiss() }
-                        .onFailure { e ->
-                            if ((e as? RelayException)?.status == 404) error = true
-                            else Toast.makeText(context, R.string.tube_profile_error, Toast.LENGTH_SHORT).show()
-                        }
-                    busy = false
-                }
-            }) { Text(stringResource(R.string.tube_profile_use), color = sc.Accent) }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.tube_cancel), color = sc.TextMuted) } },
     )

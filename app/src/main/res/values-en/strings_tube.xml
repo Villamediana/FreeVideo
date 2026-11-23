@@ -278,4 +278,8 @@
     <string name="tube_computer_no_scanner">Couldn\'t open the camera. Point your phone\'s camera at the code.</string>
     <string name="tube_computer_expired">The code expired. Show another one on the computer.</string>
     <string name="tube_computer_too_many">Too many computers. Unlink one.</string>
+    <string name="tube_set_section_account">Account</string>
+    <string name="tube_code_new_title">Make another code?</string>
+    <string name="tube_code_new_body">The current code stops working. Keep the new one.</string>
+    <string name="tube_code_too_many">Too many tries. Try again in a little while.</string>
 </resources>

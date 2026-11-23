@@ -1,6 +1,6 @@
 {
   "name": "freevideo-relay",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "private": true,
   "description": "Servidor do FreeVideo: perfis, o cofre cifrado no celular e os computadores ligados (a web).",
   "type": "module",

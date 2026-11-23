@@ -8,6 +8,7 @@ import { isIP } from 'node:net';
 import { Cache } from './cache.js';
 import { CHANNEL, PLAYLIST, Tube, VIDEO } from './tube.js';
 import { HEADERS, Pages } from './pages.js';
+import { PassCheck } from './pass.js';
 
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
@@ -26,14 +27,14 @@ class Limiter {
   constructor(max, windowMs, clock) {
     Object.assign(this, { max, windowMs, clock, hits: new Map() });
   }
-  take(key) {
+  take(key, cost = 1) {
     const now = this.clock();
     const h = this.hits.get(key);
-    if (h && now - h.start < this.windowMs) return ++h.n <= this.max;
+    if (h && now - h.start < this.windowMs) return (h.n += cost) <= this.max;
     if (this.hits.size > 50_000) for (const [k, v] of this.hits) if (now - v.start >= this.windowMs) this.hits.delete(k);
     if (this.hits.size > 50_000) return false;
-    this.hits.set(key, { start: now, n: 1 });
-    return true;
+    this.hits.set(key, { start: now, n: cost });
+    return cost <= this.max;
   }
 }
 
@@ -73,43 +74,73 @@ class Gate {
 const LANG = (v) => (v === 'es' || v === 'en' ? v : 'pt');
 const q = (url, name, max = 200) => (url.searchParams.get(name) ?? '').replace(/[\u0000-\u001f\u007f]/g, ' ').trim().slice(0, max);
 
-export function createWeb({ publicDir, tube = new Tube(), clock = Date.now, log = console } = {}) {
+// Por computador ligado: pedidos por minuto, pedidos que vão mesmo ao YouTube (fora do cache) por minuto
+// (as novidades das inscrições contam um por canal), e pedidos ao mesmo tempo. Um só computador não enche
+// a fila de todos.
+const PER_COMPUTER = 400;
+const UPSTREAM_PER_COMPUTER = 240;
+const IN_FLIGHT_PER_COMPUTER = 6;
+
+export function createWeb({
+  publicDir,
+  tube = new Tube(),
+  clock = Date.now,
+  log = console,
+  relay = process.env.RELAY_URL || 'http://127.0.0.1:3990',
+  passes = new PassCheck({ keyUrl: `${relay}/v1/pass-key`, clock }),
+} = {}) {
   const pages = new Pages({ dir: publicDir });
   const cache = new Cache({ max: 5000, clock });
   const gate = new Gate(8, 300);
   const perIp = new Limiter(400, MINUTE, clock);
+  const perComputer = new Limiter(PER_COMPUTER, MINUTE, clock);
+  const upstream = new Limiter(UPSTREAM_PER_COMPUTER, MINUTE, clock);
+  const inFlight = new Map();
 
-  const yt = (key, ttl, lang, fn) => cache.get(`${lang}|${key}`, ttl, () => gate.run(async () => {
-    try {
-      return await fn();
-    } catch (e) {
-      if (e instanceof HttpError) throw e;
-      tube.reset(lang);
-      return fn();
-    }
-  }));
+  /** Vai ao YouTube por [who]: conta no limite dele. */
+  const spend = (who, cost = 1) => {
+    if (!upstream.take(who, cost)) throw new HttpError(429, 'slow_down');
+  };
+
+  const yt = (key, ttl, lang, fn, who) => cache.get(`${lang}|${key}`, ttl, () => {
+    spend(who);
+    return gate.run(async () => {
+      try {
+        return await fn();
+      } catch (e) {
+        if (e instanceof HttpError) throw e;
+        tube.reset(lang);
+        return fn();
+      }
+    });
+  });
 
   const api = {
-    search: (url, lang) => {
+    search: (url, lang, who) => {
       const text = q(url, 'q', 150);
       if (!text) throw new HttpError(400, 'no_query');
       const type = q(url, 'type', 20);
-      return yt(`search|${type}|${text.toLowerCase()}`, 30 * MINUTE, lang, () => tube.search(text, type, lang));
+      return yt(`search|${type}|${text.toLowerCase()}`, 30 * MINUTE, lang, () => tube.search(text, type, lang), who);
     },
-    more: async (url) => {
+    more: async (url, lang, who) => {
+      spend(who);
       const out = await gate.run(() => tube.more(q(url, 'token', 80)));
       if (!out) throw new HttpError(404, 'no_page');
       return out;
     },
-    suggest: (url, lang) => {
+    suggest: (url, lang, who) => {
       const text = q(url, 'q', 100);
       if (!text) return { queries: [] };
-      return yt(`suggest|${text.toLowerCase()}`, HOUR, lang, () => tube.suggest(text, lang));
+      return yt(`suggest|${text.toLowerCase()}`, HOUR, lang, () => tube.suggest(text, lang), who);
     },
     /** As novidades de vários canais de uma vez (as inscrições): ?ids=UC…,UC… (até 60). */
-    latest: async (url) => {
-      const ids = q(url, 'ids', 60 * 25).split(',').filter((x) => CHANNEL.test(x)).slice(0, 60);
-      const out = await Promise.all(ids.map((id) => cache.get(`rss|${id}`, 15 * MINUTE, () => gate.run(() => tube.latest(id))).catch(() => [])));
+    latest: async (url, lang, who) => {
+      const ids = [...new Set(q(url, 'ids', 60 * 25).split(',').filter((x) => CHANNEL.test(x)))].slice(0, 60);
+      // Cada canal fora do cache é um pedido ao YouTube: conta um por um (os que passarem do limite ficam vazios).
+      const out = await Promise.all(ids.map((id) => cache.get(`rss|${id}`, 15 * MINUTE, () => {
+        spend(who);
+        return gate.run(() => tube.latest(id));
+      }).catch(() => [])));
       return { items: out.flat() };
     },
   };
@@ -151,16 +182,24 @@ export function createWeb({ publicDir, tube = new Tube(), clock = Date.now, log 
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'method' });
     if (p === '/api/health') return send(res, 200, { ok: true });
     if (!p.startsWith('/api/')) return pages.serve(req, res, p);
+    let who = null;
     try {
       if (!perIp.take(ipOf(req))) throw new HttpError(429, 'slow_down');
+      // Só computador ligado (o passe que o relay dá a ele): de fora, a ponte não atende.
+      const sub = await passes.check(req.headers['x-freevideo-pass']);
+      if (!sub) throw new HttpError(401, 'pass');
+      if (!perComputer.take(sub)) throw new HttpError(429, 'slow_down');
+      if ((inFlight.get(sub) ?? 0) >= IN_FLIGHT_PER_COMPUTER) throw new HttpError(429, 'slow_down');
+      who = sub;
+      inFlight.set(who, (inFlight.get(who) ?? 0) + 1);
       const lang = LANG(url.searchParams.get('lang'));
       const [, , what, id] = p.split('/');
       let out;
-      if (Object.hasOwn(api, what) && id === undefined) out = await api[what](url, lang);
+      if (Object.hasOwn(api, what) && id === undefined) out = await api[what](url, lang, who);
       else if (Object.hasOwn(byId, what) && id !== undefined) {
         const [pattern, ttl, fn] = byId[what];
         if (!pattern.test(id)) throw new HttpError(400, 'bad_id');
-        out = await yt(`${what}|${id}`, ttl, lang, () => fn(id, lang));
+        out = await yt(`${what}|${id}`, ttl, lang, () => fn(id, lang), who);
       } else throw new HttpError(404, 'not_found');
       return send(res, 200, out);
     } catch (e) {
@@ -168,6 +207,12 @@ export function createWeb({ publicDir, tube = new Tube(), clock = Date.now, log 
       // Nunca a busca da pessoa no log: só o tipo de pedido.
       log.error?.(`[web] ${p.split('/').slice(0, 3).join('/')}: ${e?.message ?? e}`);
       return send(res, 502, { error: 'upstream' });
+    } finally {
+      if (who) {
+        const n = (inFlight.get(who) ?? 1) - 1;
+        if (n > 0) inFlight.set(who, n);
+        else inFlight.delete(who);
+      }
     }
   }
 
