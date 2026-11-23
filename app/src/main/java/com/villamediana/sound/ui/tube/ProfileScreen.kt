@@ -79,8 +79,8 @@ import kotlinx.coroutines.launch
 
 /**
  * The profile: photo, name and @ (the @ is the identifier and stays), the recovery code (it brings the
- * profile and everything in its vault to another phone), another phone's code, the computers linked
- * (FreeVideo on the web) and deleting the profile. Short labels, no paragraphs.
+ * profile and everything in its vault to another phone), another phone's code and deleting the
+ * profile (the computers linked are in Ajustes). Short labels, no paragraphs.
  */
 @Composable
 fun TubeProfileScreen() {
@@ -90,7 +90,6 @@ fun TubeProfileScreen() {
     val me by account.me.collectAsState()
     val code by account.recoveryCode.collectAsState()
     val status by account.status.collectAsState()
-    val computers by hub.computers.collectAsState()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     fun toast(text: String) = Toast.makeText(context, text, Toast.LENGTH_SHORT).show()
@@ -100,11 +99,7 @@ fun TubeProfileScreen() {
     var naming by remember { mutableStateOf(false) }
     var recovering by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
-    var linking by remember { mutableStateOf<ComputerLink.Code?>(null) }
-    LaunchedEffect(Unit) {
-        account.refresh()
-        hub.refreshComputers()
-    }
+    LaunchedEffect(Unit) { account.refresh() }
     val gallery = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         if (uri != null) scope.launch {
             val photo = account.loadPhoto(uri)
@@ -173,26 +168,6 @@ fun TubeProfileScreen() {
                         }
                     }
                 }
-                item(key = "computers") {
-                    Card {
-                        Row(Modifier.fillMaxWidth().clickable { scanComputerCode(context) { linking = it } }.padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
-                            IconTile(Icons.Rounded.Computer, Pastel.Sky, size = 38.dp)
-                            Spacer(Modifier.width(14.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(stringResource(R.string.tube_computer), style = MaterialTheme.typography.titleMedium, color = sc.Text)
-                                Text("freevideo.simplyonegoal.com", style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
-                            }
-                            Icon(Icons.Rounded.QrCodeScanner, stringResource(R.string.tube_computer_link), tint = sc.Accent)
-                        }
-                        for (c in computers) ComputerRow(c, onUnlink = {
-                            scope.launch {
-                                hub.unlinkComputer(c.id)
-                                    .onSuccess { toast(context.getString(R.string.tube_computer_unlinked)) }
-                                    .onFailure { toast(context.getString(R.string.tube_profile_error)) }
-                            }
-                        })
-                    }
-                }
                 item(key = "more") {
                     Card {
                         ProfileRow(Icons.Rounded.SwapHoriz, Pastel.Sage, stringResource(R.string.tube_profile_use_code)) { recovering = true }
@@ -226,7 +201,6 @@ fun TubeProfileScreen() {
     }
     if (naming) me?.let { NameDialog(it.name, onDismiss = { naming = false }) }
     if (recovering) CodeDialog(onDismiss = { recovering = false })
-    linking?.let { LinkComputerDialog(it, onDismiss = { linking = null }) }
     if (deleting) {
         AlertDialog(
             onDismissRequest = { deleting = false },
@@ -257,6 +231,24 @@ private fun ProfileRow(icon: ImageVector, tint: Color, title: String, danger: Bo
         Text(title, style = MaterialTheme.typography.titleMedium, color = if (danger) sc.Danger else sc.Text, modifier = Modifier.weight(1f))
         Icon(Icons.AutoMirrored.Rounded.KeyboardArrowRight, null, tint = sc.TextFaint)
     }
+}
+
+/**
+ * "Computador" (in Ajustes): FreeVideo on the web, linked by reading its QR code, and the computers
+ * linked (each can be unlinked).
+ */
+@Composable
+internal fun ComputerRows(computers: List<Computer>, onScan: () -> Unit, onUnlink: (Computer) -> Unit) {
+    Row(Modifier.fillMaxWidth().clickable(onClick = onScan).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconTile(Icons.Rounded.Computer, Pastel.Sky, size = 38.dp)
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(stringResource(R.string.tube_computer_link), style = MaterialTheme.typography.titleMedium, color = sc.Text)
+            Text("freevideo.simplyonegoal.com", style = MaterialTheme.typography.bodySmall, color = sc.TextMuted, maxLines = 1)
+        }
+        Icon(Icons.Rounded.QrCodeScanner, null, tint = sc.Accent)
+    }
+    for (c in computers) ComputerRow(c, onUnlink = { onUnlink(c) })
 }
 
 @Composable

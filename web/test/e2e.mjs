@@ -128,6 +128,28 @@ check(await page.locator('.vrow', { hasText: 'Do celular:' }).count() === 1, `o 
 await shot('05-mais-tarde-mini');
 check(await page.locator('.mini-bar').count() === 1, 'o vídeo segue pequeno no canto');
 
+// Recarregar a página: o vídeo volta no canto
+const miniTitle = await page.locator('.mini-bar .mini-title b').innerText().catch(() => '');
+await page.reload();
+await page.waitForSelector('.mini-bar', { timeout: 30_000 }).catch(() => {});
+const miniAgain = await page.locator('.mini-bar .mini-title b').innerText().catch(() => '');
+check(!!miniTitle && miniAgain === miniTitle, `recarregar volta com o vídeo no canto ("${miniAgain}")`);
+
+// O celular está vendo outro (o histórico anota onde parou): fechado o daqui, o mini player mostra o do
+// celular, pausado onde ele está
+await page.locator('.mini-bar button[aria-label="Fechar"]').click();
+await page.waitForTimeout(1000);
+const nowV = (await api('GET', '/v1/me/vault', { token: phone.token })).json;
+const nowData = normalize(await lock.openVault(nowV.data, phoneKey));
+const onPhone = found[8] ?? found[1];
+const at = Date.now();
+const watching = { ...nowData, h: [{ i: onPhone.id, t: 'No celular: ' + onPhone.title, cn: onPhone.channelName, cu: onPhone.channelUrl, th: onPhone.thumbnailUrl, d: 600_000, p: 120_000, w: 120_000, n: 1, f: at, l: at }, ...nowData.h] };
+const toldPhone = await api('PUT', '/v1/me/vault', { token: phone.token, body: { baseRev: nowV.rev, data: await lock.sealVault(watching, phoneKey) } });
+const t2 = Date.now();
+await page.waitForSelector('.mini-bar .mini-title:has-text("No celular:")', { timeout: 15_000 }).catch(() => {});
+check(toldPhone.status === 200 && (await page.locator('.mini-bar .mini-title', { hasText: 'No celular:' }).count()) === 1, `o mini player mostra o que o celular está vendo (${Date.now() - t2} ms)`);
+await shot('05b-do-celular');
+
 // Busca, canal, inscrições, biblioteca, histórico, perfil
 await page.click('.search-box input');
 await page.keyboard.type('documentário espaço', { delay: 30 });

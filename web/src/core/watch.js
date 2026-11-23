@@ -18,12 +18,15 @@ export class Watcher {
     this.lastTick = null;
     this.lastNote = 0;
     this.newVisit = false;
+    this.lastActive = 0; // a última vez que a pessoa abriu, tocou, pausou ou fechou um vídeo aqui (ms)
     this.frame = new YouTubeFrame(host, {
       controls: true,
       onState: (s) => this.onState(s),
       onTime: (t, d) => this.onTime(t, d),
       onError: (code) => this.onError(code),
     });
+    // O frame do YouTube já pronto: o primeiro play é um comando, como os outros.
+    this.frame.warm();
   }
 
   subscribe(fn) {
@@ -51,19 +54,36 @@ export class Watcher {
     this.newVisit = true;
     this.played = 0;
     this.lastTick = null;
+    this.lastActive = Date.now();
     this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: STATE.BUFFERING, error: null });
     this.frame.load(video.id, Math.floor(startMs / 1000), true);
+  }
+
+  /**
+   * Deixa [video] pronto no mini player, pausado em [startMs] ([play]: tenta já tocar): o que tocava
+   * nesta aba antes de recarregar, ou o que o celular estava vendo. [at]: quando aquilo foi visto.
+   */
+  cue(video, startMs = 0, { play = false, at = Date.now() } = {}) {
+    this.note();
+    this.newVisit = true;
+    this.played = 0;
+    this.lastTick = null;
+    this.lastActive = at;
+    this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: play ? STATE.BUFFERING : STATE.CUED, error: null });
+    this.frame.load(video.id, Math.floor(startMs / 1000), play);
   }
 
   /** Fecha o vídeo (o mini player saiu): o que foi visto fica anotado. */
   close() {
     this.note();
+    this.lastActive = Date.now();
     this.frame.stop();
     this.set({ video: null, state: STATE.UNSTARTED, time: 0, duration: 0 });
   }
 
   toggle() {
     if (!this.video) return;
+    this.lastActive = Date.now();
     if (this.playing) this.frame.pause();
     else this.frame.play();
   }
@@ -73,6 +93,8 @@ export class Watcher {
   }
 
   onState(s) {
+    // Tocou ou pausou pelos controles do próprio YouTube: também é a pessoa aqui.
+    if ((s === STATE.PLAYING && this.state !== STATE.PLAYING) || (s === STATE.PAUSED && this.state === STATE.PLAYING)) this.lastActive = Date.now();
     if (s !== STATE.PLAYING) {
       this.lastTick = null;
       if (s === STATE.PAUSED) this.note();

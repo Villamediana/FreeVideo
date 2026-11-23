@@ -141,10 +141,31 @@ fun TubeSettingsScreen() {
     val notifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
     fun toast(id: Int) = Toast.makeText(context, context.getString(id), Toast.LENGTH_SHORT).show()
     LaunchedEffect(Unit) { cached = withContext(Dispatchers.IO) { VideoCache.size(context) } }
+    // "Computador": FreeVideo on the web, linked by reading its QR code.
+    val account = tube.account
+    val computers by account.computers.collectAsState()
+    var linking by remember { mutableStateOf<com.villamediana.sound.social.ComputerLink.Code?>(null) }
+    LaunchedEffect(Unit) { account.refreshComputers() }
 
     Column(Modifier.fillMaxSize()) {
         PageTopBar(stringResource(R.string.tube_settings), onBack = nav::back)
         LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)) {
+            item(key = "computer") {
+                Group(stringResource(R.string.tube_computer)) {
+                    ComputerRows(
+                        computers,
+                        onScan = { scanComputerCode(context) { linking = it } },
+                        onUnlink = { c ->
+                            scope.launch {
+                                account.unlinkComputer(c.id)
+                                    .onSuccess { toast(R.string.tube_computer_unlinked) }
+                                    .onFailure { toast(R.string.tube_profile_error) }
+                            }
+                        },
+                    )
+                }
+            }
+
             item(key = "look") {
                 Group(stringResource(R.string.tube_set_section_look)) {
                     Column(Modifier.padding(16.dp)) {
@@ -243,6 +264,7 @@ fun TubeSettingsScreen() {
             item(key = "bottom") { Spacer(Modifier.windowInsetsBottomHeight(WindowInsets.navigationBars)) }
         }
     }
+    linking?.let { LinkComputerDialog(it, onDismiss = { linking = null }) }
 
     when (confirm) {
         Confirm.RESET -> ConfirmDialog(

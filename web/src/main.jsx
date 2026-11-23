@@ -7,7 +7,7 @@ import { Api } from './core/api.js';
 import { Store, MemoryStore } from './core/store.js';
 import { VaultSync } from './core/sync.js';
 import { Watcher } from './core/watch.js';
-import { channelKey, edit, LATER, LIKED } from './core/vault.js';
+import { channelKey, edit, fromV, LATER, LIKED } from './core/vault.js';
 import { strings, pickLang } from './ui/i18n.js';
 import { Ctx, Dialog, Logo, useApp } from './ui/kit.jsx';
 import { App, parse } from './ui/app.jsx';
@@ -174,11 +174,61 @@ async function linked({ store, shared, t, lang }) {
 
   const watcher = new Watcher({
     host: document.getElementById('yt-dock'),
-    onRecord: (video, positionMs, durationMs, addMs, newVisit) => sync.change((v) => edit.watch(v, video, positionMs, durationMs, addMs, newVisit, Date.now()), { quiet: true }),
+    onRecord: (video, positionMs, durationMs, addMs, newVisit) => {
+      lastOwnNote = Date.now();
+      sync.change((v) => edit.watch(v, video, positionMs, durationMs, addMs, newVisit, lastOwnNote), { quiet: true });
+    },
     // Acabou: o próximo do "a seguir" (como o app, com reprodução automática).
     onEnded: () => { if (prefs.autoplay !== false) next?.(); },
     onToast: (what) => toast(t(what)),
   });
+
+  // O vídeo desta aba, guardado (fechado com a chave do cofre): recarregar a página volta com ele, no
+  // mesmo ponto — na página dele ou no mini player, tocando se estava tocando (e o navegador deixar).
+  let lastOwnNote = 0;
+  const saveOpen = async () => {
+    if (unlinked) return;
+    try {
+      const v = watcher.video;
+      const snap = { v: 1, video: v, time: v ? watcher.time : 0, playing: !!v && watcher.playing, at: watcher.lastActive, saved: Date.now() };
+      await store.set('open', await lock.sealLocal(snap, key));
+    } catch { /* sem espaço, aba fechando: a próxima vez guarda */ }
+  };
+  let openKey = '';
+  watcher.subscribe(() => {
+    const k = `${watcher.video?.id ?? ''}|${watcher.playing}|${watcher.lastActive}`;
+    if (k === openKey) return;
+    openKey = k;
+    setTimeout(saveOpen, 300);
+  });
+  setInterval(() => { if (watcher.playing) saveOpen(); }, 5000);
+  let resumeHint = null; // {id, ms}: a página do vídeo aberta ao recarregar continua daqui
+  try {
+    const sealedOpen = await store.get('open');
+    const o = sealedOpen ? await lock.openLocal(sealedOpen, key) : null;
+    if (o?.v === 1) {
+      watcher.lastActive = o.at ?? 0;
+      if (o.video?.id && /^[A-Za-z0-9_-]{11}$/.test(o.video.id)) {
+        const wasPlaying = o.playing === true && Date.now() - (o.saved ?? 0) < 10 * 60_000;
+        const route = parse(location.hash);
+        if (route.name === 'watch' && route.id === o.video.id) resumeHint = { id: o.video.id, ms: Math.round((o.time ?? 0) * 1000) };
+        else watcher.cue(o.video, Math.round((o.time ?? 0) * 1000), { play: wasPlaying, at: o.at ?? 0 });
+      }
+    }
+  } catch { /* de outra chave ou estragado: começa sem vídeo */ }
+
+  // O que o celular está vendo (o histórico do cofre anota onde parou, a cada 15 s): com nada tocando
+  // aqui e fora da página de um vídeo, o mini player mostra, pausado ali — é só dar play pra continuar.
+  const followPhone = () => {
+    if (unlinked || watcher.playing || parse(location.hash).name === 'watch') return;
+    let last = null;
+    for (const w of sync.data.h) if (!last || w.l > last.l) last = w;
+    if (!last || last.i === watcher.video?.id) return;
+    if (last.l <= Math.max(watcher.lastActive, lastOwnNote) || Date.now() - last.l > 2 * 3_600_000) return;
+    if (last.p < 5000 || (last.d > 0 && last.p / last.d >= 0.95)) return;
+    watcher.cue(fromV(last), last.p, { at: last.l });
+  };
+  sync.subscribe(followPhone);
 
   const isSaved = (list, id) => sync.data.sv.some((x) => x.li === list && x.i === id);
   const nf = new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 1 });
@@ -208,6 +258,13 @@ async function linked({ store, shared, t, lang }) {
     },
     closeVideo: () => watcher.close(),
     peek: (id) => (lastOpened?.id === id ? lastOpened : null),
+    /** A página deste vídeo aberta ao recarregar: continua de onde estava (uma vez). */
+    resumeAt: (id) => {
+      if (resumeHint?.id !== id) return null;
+      const ms = resumeHint.ms;
+      resumeHint = null;
+      return ms;
+    },
     isSaved,
     toggleSaved: (list, v) => {
       const was = isSaved(list, v.id);
@@ -282,7 +339,7 @@ async function linked({ store, shared, t, lang }) {
   }
 
   addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { watcher.note(); sync.flush(); } });
-  addEventListener('pagehide', () => { watcher.note(); sync.save().catch(() => {}); });
+  addEventListener('pagehide', () => { watcher.note(); sync.save().catch(() => {}); saveOpen(); });
   addEventListener('online', () => sync.push());
 
   if (shared) {

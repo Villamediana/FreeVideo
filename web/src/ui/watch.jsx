@@ -57,7 +57,8 @@ export function Watch({ id, startMs }) {
   // O vídeo começa ao abrir a página (de onde parou, se não acabou), mesmo antes dos dados chegarem.
   useEffect(() => {
     const known = app.sync.data.h.find((x) => x.i === id);
-    const resume = startMs >= 0 ? startMs : known && known.d > 0 && known.p / known.d < 0.95 && known.p > 10_000 ? known.p : 0;
+    const hint = app.resumeAt(id);
+    const resume = startMs >= 0 ? startMs : hint != null ? hint : known && known.d > 0 && known.p / known.d < 0.95 && known.p > 10_000 ? known.p : 0;
     const card = app.peek(id);
     const seed = card ?? { kind: 'video', id, title: known?.t ?? '', channelName: known?.cn ?? '', channelUrl: known?.cu ?? null, thumbnailUrl: known?.th ?? null, durationMs: known?.d ?? 0 };
     app.openVideo(seed, { navigate: false, startMs: resume });
