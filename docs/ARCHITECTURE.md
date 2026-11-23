@@ -879,3 +879,12 @@ vai e vem (antena cheia, túnel) a música parava pra carregar a cada trecho. Is
   `AudioCache`). Ajuste fino = as três constantes no `PlaybackService`.
 - Música baixada não depende de rede: se cortar com ela, é o Bluetooth.
 
+
+## FreeVideo 1.5.3 — o mini player deslizado pra fechar (2026-11-23)
+
+Bug relatado: deslizando o vídeo minimizado pro lado pra tirar, o vídeo aparecia por um instante na posição
+original antes de sumir. Causa: no fim da animação (`WatchSheet.shiftAway`) a barra voltava pro lugar
+(`barShift = 0`) enquanto a folha ainda tinha o vídeo — só depois a notícia do player fechado chegava à tela.
+Agora, fora da tela, a folha solta o vídeo primeiro (`route = null`) e só então o player fecha e tudo volta ao
+repouso pro próximo vídeo. Teste: `BarSwipeAwayTest` (depois do empurrão, o vídeo nunca está na tela no lugar
+de antes).
