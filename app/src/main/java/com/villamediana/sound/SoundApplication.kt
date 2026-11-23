@@ -15,6 +15,11 @@ class SoundApplication : Application(), SingletonImageLoader.Factory {
     lateinit var graph: AppGraph
         private set
 
+    /** Android 8–12: notifications and the rest of the app in the app's own language too. */
+    override fun attachBaseContext(base: android.content.Context) {
+        super.attachBaseContext(com.villamediana.sound.tube.AppLanguage.wrap(base))
+    }
+
     override fun onCreate() {
         super.onCreate()
         // If the app ever closes by a crash, its first lines are kept (the update sheet shows why).

@@ -12,7 +12,8 @@ import java.util.Locale
 object ContentLanguage {
     fun of(context: Context): Locale {
         val language = context.getString(R.string.content_language).ifBlank { "pt" }
-        val phone = context.resources.configuration.locales[0] ?: Locale.getDefault()
+        // The phone's own country (the app's language may carry none): its market, its trends.
+        val phone = android.content.res.Resources.getSystem().configuration.locales[0] ?: Locale.getDefault()
         val country = phone.country.takeIf { it.length == 2 } ?: Locale.getDefault().country.takeIf { it.length == 2 } ?: "BR"
         return Locale(language, country)
     }

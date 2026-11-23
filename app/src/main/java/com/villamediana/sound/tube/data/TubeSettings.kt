@@ -28,6 +28,10 @@ data class TubePrefs(
     val interestsAsked: Boolean = false,
     /** The speed chosen on the video (1 = normal); every video after it plays at it too. */
     val speed: Float = 1f,
+    /** Captions on the video (for the next videos too). */
+    val captionsOn: Boolean = false,
+    /** The language of the captions chosen ("" = the app's). */
+    val captionLanguage: String = "",
 )
 
 class TubeSettings(private val context: Context) {
@@ -39,6 +43,8 @@ class TubeSettings(private val context: Context) {
         val interestsAsked = booleanPreferencesKey("interests_asked")
         val pip = booleanPreferencesKey("pip")
         val speed = floatPreferencesKey("speed")
+        val captionsOn = booleanPreferencesKey("captions_on")
+        val captionLanguage = androidx.datastore.preferences.core.stringPreferencesKey("caption_language")
     }
 
     val prefs: Flow<TubePrefs> = context.tubeStore.data.map { p ->
@@ -50,6 +56,8 @@ class TubeSettings(private val context: Context) {
             pictureInPicture = p[K.pip] ?: true,
             interestsAsked = p[K.interestsAsked] ?: false,
             speed = p[K.speed]?.takeIf { it in SPEEDS } ?: 1f,
+            captionsOn = p[K.captionsOn] ?: false,
+            captionLanguage = p[K.captionLanguage].orEmpty(),
         )
     }
 
@@ -62,6 +70,10 @@ class TubeSettings(private val context: Context) {
     suspend fun setPictureInPicture(v: Boolean) = context.tubeStore.edit { it[K.pip] = v }
     suspend fun setInterestsAsked(v: Boolean) = context.tubeStore.edit { it[K.interestsAsked] = v }
     suspend fun setSpeed(v: Float) = context.tubeStore.edit { it[K.speed] = v }
+    suspend fun setCaptions(on: Boolean, language: String?) = context.tubeStore.edit {
+        it[K.captionsOn] = on
+        if (language != null) it[K.captionLanguage] = language
+    }
 
     companion object {
         val QUALITIES = listOf(360, 480, 720, 1080)

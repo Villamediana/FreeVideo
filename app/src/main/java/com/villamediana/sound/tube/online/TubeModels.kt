@@ -82,6 +82,10 @@ data class VideoDetails(
     val ageLimit: Int = 0,
     /** YouTube's preview frames (the seek bar's pictures); null when it has none. */
     val storyboard: Storyboard? = null,
+    /** The captions the video has (the channel's and YouTube's automatic ones). */
+    val captions: List<CaptionTrack> = emptyList(),
+    /** Its chapters, when the channel marked them. */
+    val chapters: List<Chapter> = emptyList(),
 )
 
 data class CommentItem(

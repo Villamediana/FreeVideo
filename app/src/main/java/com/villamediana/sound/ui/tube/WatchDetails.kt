@@ -33,6 +33,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.AutoStories
+import androidx.compose.material.icons.automirrored.rounded.Notes
 import androidx.compose.material.icons.outlined.ThumbDown
 import androidx.compose.material.icons.outlined.ThumbUp
 import androidx.compose.material.icons.rounded.Autorenew
@@ -114,6 +116,9 @@ internal fun WatchDetails(route: WatchRoute, vm: WatchViewModel, modifier: Modif
     var disliked by rememberSaveable(route.id) { mutableStateOf(false) }
     var showDescription by remember { mutableStateOf(false) }
     var showComments by remember { mutableStateOf(false) }
+    var showTranscript by remember { mutableStateOf(false) }
+    var showSummary by remember { mutableStateOf(false) }
+    val captions by vm.captions.collectAsState()
     var menu by remember { mutableStateOf<VideoMenuTarget?>(null) }
 
     LazyColumn(modifier.fillMaxWidth(), contentPadding = PaddingValues(bottom = 24.dp)) {
@@ -209,6 +214,21 @@ internal fun WatchDetails(route: WatchRoute, vm: WatchViewModel, modifier: Modif
                 item {
                     ActionIcon(icon = Icons.Rounded.Share, description = stringResource(R.string.tube_share), selected = false, onClick = { shareVideo(context, video) })
                 }
+                // Reading the video: its transcript and its summary in pictures (from its captions and chapters).
+                if (captions.tracks.isNotEmpty() || state.details?.chapters?.isNotEmpty() == true) {
+                    item {
+                        ActionIcon(icon = Icons.AutoMirrored.Rounded.Notes, description = stringResource(R.string.tube_transcript), selected = false, onClick = {
+                            vm.ensureCues()
+                            showTranscript = true
+                        })
+                    }
+                    item {
+                        ActionIcon(icon = Icons.Rounded.AutoStories, description = stringResource(R.string.tube_summary), selected = false, onClick = {
+                            vm.ensureCues()
+                            showSummary = true
+                        })
+                    }
+                }
             }
         }
         // Description preview.
@@ -265,6 +285,27 @@ internal fun WatchDetails(route: WatchRoute, vm: WatchViewModel, modifier: Modif
     }
 
     if (showDescription) DescriptionSheet(video, state, onClose = { showDescription = false })
+    if (showTranscript) {
+        TranscriptSheet(captions, onSeek = { ms -> tube.player.seekTo(ms) }, onRetry = vm::retryCues, onClose = { showTranscript = false })
+    }
+    if (showSummary) {
+        val duration = video.durationMs.takeIf { it > 0 } ?: 0L
+        val sections = remember(captions.cues, state.details?.chapters, duration) {
+            com.villamediana.sound.tube.online.Captions.sections(captions.cues, state.details?.chapters.orEmpty(), duration)
+        }
+        SummarySheet(
+            captions = captions,
+            sections = sections,
+            storyboard = state.details?.storyboard,
+            durationMs = duration,
+            onSeek = { ms ->
+                tube.player.seekTo(ms)
+                showSummary = false
+            },
+            onRetry = vm::retryCues,
+            onClose = { showSummary = false },
+        )
+    }
     if (showComments) {
         CommentsSheet(state, vm, onClose = { showComments = false })
     }
@@ -450,7 +491,7 @@ private fun Figure(value: String, label: String) {
 
 /** A sheet's head: title, a count, and × — over a hairline. */
 @Composable
-private fun SheetTop(title: String, count: String?, onClose: () -> Unit) {
+internal fun SheetTop(title: String, count: String?, onClose: () -> Unit) {
     Column {
         Row(Modifier.fillMaxWidth().padding(start = 22.dp, end = 10.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.headlineSmall, color = sc.Text)

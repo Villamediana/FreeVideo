@@ -60,6 +60,8 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.automirrored.rounded.VolumeUp
 import androidx.compose.material.icons.rounded.BrightnessMedium
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.ClosedCaption
+import androidx.compose.material.icons.rounded.ClosedCaptionOff
 import androidx.compose.material.icons.rounded.FastForward
 import androidx.compose.material.icons.rounded.FastRewind
 import androidx.compose.material.icons.rounded.FitScreen
@@ -221,11 +223,19 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
     val fullscreen = toPage && (landscape || mode.tall)
     var panel by remember { mutableStateOf(false) }
     var speedMenu by remember { mutableStateOf(false) }
+    var captionMenu by remember { mutableStateOf(false) }
+    val captions by vm.captions.collectAsState()
+    val appLanguage = remember(context) { com.villamediana.sound.tube.ContentLanguage.of(context).language }
     LaunchedEffect(fullscreen) { if (!fullscreen) panel = false }
-    LaunchedEffect(toPage) { if (!toPage) speedMenu = false }
+    LaunchedEffect(toPage) {
+        if (!toPage) {
+            speedMenu = false
+            captionMenu = false
+        }
+    }
 
     // Back: shrinks the page into the bar, following the gesture (the page gets smaller as the finger goes).
-    PredictiveBackHandler(enabled = toPage && !fullscreen && !speedMenu) { progress ->
+    PredictiveBackHandler(enabled = toPage && !fullscreen && !speedMenu && !captionMenu) { progress ->
         try {
             progress.collect { e -> sheet.dragTo(1f - 0.25f * e.progress) }
             sheet.collapse()
@@ -234,8 +244,11 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
             throw e
         }
     }
-    BackHandler(enabled = fullscreen && !speedMenu) { if (panel) panel = false else mode.exit() }
-    BackHandler(enabled = speedMenu) { speedMenu = false }
+    BackHandler(enabled = fullscreen && !speedMenu && !captionMenu) { if (panel) panel = false else mode.exit() }
+    BackHandler(enabled = speedMenu || captionMenu) {
+        speedMenu = false
+        captionMenu = false
+    }
 
     // The status bar over the black top of the page: light icons while the page is there.
     val darkTop by remember(sheet) { derivedStateOf { sheet.expansion.value > 0.5f } }
@@ -262,7 +275,7 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
     var rewoundFromPlaying by remember { mutableStateOf(false) }
     var beforeTap by remember { mutableStateOf<OverlayState?>(null) }
     val scope = rememberCoroutineScope()
-    val pinned = scrubbing || loading || error != null || panel || speedMenu
+    val pinned = scrubbing || loading || error != null || panel || speedMenu || captionMenu
 
     // Full screen: the picture's zoom (1 = fits, [Zoom.fill] = fills the screen, more = a closer look).
     val zoom = remember { Zoom() }
@@ -460,6 +473,18 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
                 overlay = overlay.touch(now())
             }
 
+            override fun showCaptions(show: Boolean) {
+                captionMenu = show
+                overlay = overlay.touch(now())
+            }
+
+            override fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?) {
+                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                vm.pickCaptions(choice)
+                captionMenu = false
+                overlay = overlay.touch(now())
+            }
+
             override fun zoomedIn(): Boolean = zoom.free != null
 
             override fun transform(zoomChange: Float, pan: Offset) {
@@ -641,6 +666,9 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
             threshold = threshold,
             panel = panel,
             speedMenu = speedMenu,
+            captions = captions,
+            captionMenu = captionMenu,
+            captionLanguage = appLanguage,
             related = details.related,
             storyboard = storyboard,
             zoom = zoom,
@@ -918,6 +946,8 @@ internal interface WatchActions {
     fun showPanel(show: Boolean)
     fun showSpeed(show: Boolean)
     fun pickSpeed(speed: Float)
+    fun showCaptions(show: Boolean)
+    fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?)
     /** Zoomed in past filling the screen: one finger moves the picture. */
     fun zoomedIn(): Boolean
     fun transform(zoomChange: Float, pan: Offset)
@@ -958,6 +988,9 @@ private fun Stage(
     threshold: Float,
     panel: Boolean,
     speedMenu: Boolean,
+    captions: WatchViewModel.CaptionsUi,
+    captionMenu: Boolean,
+    captionLanguage: String,
     related: List<VideoItem>,
     storyboard: Storyboard?,
     zoom: Zoom,
@@ -1045,8 +1078,12 @@ private fun Stage(
                                 Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (channel.isNotBlank()) Text(channel, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            if (captions.tracks.isNotEmpty()) {
+                                Spacer(Modifier.width(8.dp))
+                                CaptionsButton(captions.showing) { actions.showCaptions(true) }
+                            }
                             if (!live && error == null) {
-                                Spacer(Modifier.width(12.dp))
+                                Spacer(Modifier.width(8.dp))
                                 StageSpeedPill(state.speed, { actions.showSpeed(true) })
                             }
                         }
@@ -1074,6 +1111,7 @@ private fun Stage(
                                         .padding(horizontal = 6.dp, vertical = 2.dp),
                                 )
                             }
+                            if (captions.tracks.isNotEmpty()) CaptionsButton(captions.showing) { actions.showCaptions(true) }
                             if (!live && error == null) StageSpeedPill(state.speed, { actions.showSpeed(true) })
                         }
                     }
@@ -1175,6 +1213,18 @@ private fun Stage(
                 )
             }
 
+            // The line said now (captions on), above the controls when they show.
+            if (captions.showing && captions.cues.isNotEmpty() && (atPage || fullscreen) && state.countdown == null) {
+                val lift by animateFloatAsState(if (controlsVisible) 1f else 0f, tween(220), label = "ccLift")
+                val low = if (fullscreen) 28.dp else 12.dp
+                val high = if (fullscreen) 104.dp else 64.dp
+                StageCaption(
+                    captions.cues,
+                    progress,
+                    big = fullscreen,
+                    modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = low + (high - low) * lift),
+                )
+            }
             SeekHint(streak, tapPoint)
             AnimatedVisibility(
                 visible = holding != null,
@@ -1213,6 +1263,15 @@ private fun Stage(
             }
             // The edges in full screen: brightness on the left, volume on the right.
             level?.let { l -> LevelMeter(l, Modifier.align(if (l.brightness) Alignment.CenterStart else Alignment.CenterEnd).padding(horizontal = 40.dp)) }
+            StageCaptionPicker(
+                visible = captionMenu,
+                tracks = captions.tracks,
+                language = captionLanguage,
+                selected = captions.choice?.takeIf { captions.showing },
+                onPick = actions::pickCaptions,
+                onClose = { actions.showCaptions(false) },
+                modifier = Modifier.matchParentSize(),
+            )
             StageSpeedPicker(
                 visible = speedMenu,
                 speed = state.speed,
@@ -1275,6 +1334,18 @@ private fun SeekBubble(storyboard: Storyboard?, positionMs: Long, totalMs: Long,
             modifier = Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = 10.dp, vertical = 4.dp),
         )
     }
+}
+
+/** Captions on / off over the video: the CC mark, filled while they show. */
+@Composable
+private fun CaptionsButton(on: Boolean, onClick: () -> Unit) {
+    StageButton(
+        if (on) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionOff,
+        stringResource(R.string.tube_captions),
+        onClick,
+        size = 38.dp,
+        iconSize = 24.dp,
+    )
 }
 
 /** A dark glass chip over the video: an icon and a word or two. */

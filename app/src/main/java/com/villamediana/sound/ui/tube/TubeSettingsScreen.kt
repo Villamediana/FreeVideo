@@ -48,6 +48,7 @@ import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.DeleteSweep
 import androidx.compose.material.icons.rounded.Headphones
 import androidx.compose.material.icons.rounded.HighQuality
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.History
 import androidx.compose.material.icons.rounded.HistoryToggleOff
 import androidx.compose.material.icons.rounded.Lock
@@ -154,6 +155,23 @@ fun TubeSettingsScreen() {
                         }
                         Spacer(Modifier.height(18.dp))
                         AccentRow(selected = look?.accent, onPick = { id -> scope.launch { graph.settings.setAccent(id) } })
+                        Spacer(Modifier.height(20.dp))
+                        // The app's language (and YouTube's: titles, dates and suggestions follow it).
+                        val activity = androidx.activity.compose.LocalActivity.current
+                        val language = remember { com.villamediana.sound.tube.AppLanguage.current(context) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconTile(Icons.Rounded.Translate, Tiles.Look)
+                            Spacer(Modifier.width(14.dp))
+                            Text(stringResource(R.string.tube_set_language), style = MaterialTheme.typography.titleMedium, color = sc.Text, modifier = Modifier.weight(1f))
+                        }
+                        Spacer(Modifier.height(14.dp))
+                        val choices = com.villamediana.sound.tube.AppLanguage.CHOICES
+                        Segmented(
+                            options = choices.map { tag -> if (tag.isEmpty()) stringResource(R.string.tube_theme_system) else languageName(tag) },
+                            selected = choices.indexOf(language).coerceAtLeast(0),
+                            onSelect = { i -> activity?.let { com.villamediana.sound.tube.AppLanguage.set(it, choices[i]) } },
+                            compact = true,
+                        )
                     }
                 }
             }
@@ -459,7 +477,7 @@ private fun AccentRow(selected: String?, onPick: (String) -> Unit) {
 
 /** A row of choices sharing one track; the chosen one is a raised pill that slides there. */
 @Composable
-private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit) {
+private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> Unit, compact: Boolean = false) {
     BoxWithConstraints(
         Modifier.fillMaxWidth().height(42.dp).clip(RoundedCornerShape(14.dp)).background(sc.Surface3).padding(3.dp),
     ) {
@@ -474,7 +492,12 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
                     Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(11.dp)).selectable(selected = on, role = Role.RadioButton, onClick = { onSelect(i) }),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(label, style = MaterialTheme.typography.labelLarge.copy(fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold), color = color)
+                    Text(
+                        label,
+                        style = (if (compact) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge).copy(fontWeight = if (on) FontWeight.ExtraBold else FontWeight.SemiBold),
+                        color = color,
+                        maxLines = 1,
+                    )
                 }
             }
         }

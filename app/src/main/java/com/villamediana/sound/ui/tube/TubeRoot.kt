@@ -117,6 +117,12 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     val dest = entry?.destination
     val full = dest?.isFull() == true
     val showMini = pState.active && sheet.route != null && !full
+    // A video already playing when the shell starts (the screen was rebuilt: a new language, the system
+    // freeing memory): it comes back as the bar, never sound without a picture to stop it.
+    LaunchedEffect(pState.video?.id) {
+        val playing = pState.video ?: return@LaunchedEffect
+        if (sheet.route == null) nav.followVideo(playing)
+    }
     // Closed (the bar's ×, a swipe, the notification): the page goes with it.
     var wasActive by remember { mutableStateOf(false) }
     LaunchedEffect(pState.active) {

@@ -239,4 +239,14 @@
     <string name="tube_zoom_fill">Preencher a tela</string>
     <string name="tube_zoom_fit">Vídeo inteiro</string>
     <string name="tube_open_video">Abrir o vídeo</string>
+    <string name="tube_set_language">Idioma</string>
+    <string name="tube_captions">Legendas</string>
+    <string name="tube_captions_off">Desligadas</string>
+    <string name="tube_captions_auto">%s (automáticas)</string>
+    <string name="tube_captions_translated">%s (traduzidas)</string>
+    <string name="tube_captions_none">Este vídeo não tem legendas</string>
+    <string name="tube_captions_error">Não deu para carregar as legendas.</string>
+    <string name="tube_transcript">Transcrição</string>
+    <string name="tube_transcript_search">Buscar na transcrição</string>
+    <string name="tube_summary">Resumo</string>
 </resources>

@@ -77,6 +77,9 @@ class TubeScreensTest {
         rule.onAllNodesWithContentDescription(str(R.string.tube_settings)).onFirst().performClick()
         waitFor(str(R.string.tube_set_quality))
         rule.onNodeWithText("720p").assertExists()
+        // The language: the phone's, Português, Español, English.
+        rule.onAllNodesWithText(str(R.string.tube_set_language)).onFirst().assertExists()
+        rule.onAllNodesWithText("Español").onFirst().assertExists()
         rule.onAllNodesWithContentDescription(str(R.string.tube_back)).onFirst().performClick()
         rule.waitForIdle()
 

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_social">Friends</string>
+    <string name="social_jam_source">Jam</string>
+    <string name="photo_close">Close</string>
+</resources>

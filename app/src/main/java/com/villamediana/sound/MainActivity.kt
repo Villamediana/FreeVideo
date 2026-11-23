@@ -51,6 +51,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    /** Android 8–12: the screen in the app's own language (13+ does it by itself). */
+    override fun attachBaseContext(newBase: android.content.Context) {
+        super.attachBaseContext(com.villamediana.sound.tube.AppLanguage.wrap(newBase))
+    }
+
     /** Android 8–11: home pressed with a video playing → the floating window (12+ enters it by itself). */
     override fun onUserLeaveHint() {
         super.onUserLeaveHint()
