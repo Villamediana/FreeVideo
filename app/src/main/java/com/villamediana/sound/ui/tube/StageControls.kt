@@ -137,17 +137,22 @@ private fun DrawScope.drawPlayPause(t: Float, color: Color) {
     }
 }
 
-/** Where the video is, as the bar shows it: the finger's spot while dragging, the target right after a seek. */
-private fun shownMs(progress: VideoProgress, drag: Float?, pending: PendingSeek?): Long {
+/**
+ * Where the video is, as the bar shows it: the finger's spot while dragging the bar, the spot a sideways
+ * slide on the video is going to ([previewMs]), the target right after a seek.
+ */
+private fun shownMs(progress: VideoProgress, drag: Float?, pending: PendingSeek?, previewMs: Long? = null): Long {
     val total = progress.durationMs
     drag?.let { return (it * total.coerceAtLeast(0)).toLong() }
+    previewMs?.let { return it.coerceIn(0L, total.coerceAtLeast(0)) }
     val reported = progress.positionMs
     return pending?.shown(reported, SystemClock.uptimeMillis()) ?: reported
 }
 
 /**
  * The seek bar over the bottom edge of the video: white tracks, the ember for what was watched and a
- * thumb that grows under the finger. Tap or drag to seek.
+ * thumb that grows under the finger. Tap or drag to seek. [previewMs]: sliding sideways on the video,
+ * the bar goes along with the finger (thumb grown) to where the video will jump on release.
  */
 @Composable
 internal fun StageSeekBar(
@@ -157,10 +162,12 @@ internal fun StageSeekBar(
     onScrub: (Boolean) -> Unit,
     onDragFraction: (Float?) -> Unit = {},
     modifier: Modifier = Modifier,
+    previewMs: Long? = null,
 ) {
     val drag = remember { mutableStateOf<Float?>(null) }
     val dragging by remember { derivedStateOf { drag.value != null } }
-    val grow by animateFloatAsState(if (dragging) 1f else 0f, spring(dampingRatio = 0.62f, stiffness = 700f), label = "thumb")
+    val grow by animateFloatAsState(if (dragging || previewMs != null) 1f else 0f, spring(dampingRatio = 0.62f, stiffness = 700f), label = "thumb")
+    val preview by rememberUpdatedState(previewMs)
     val seek by rememberUpdatedState(onSeek)
     val scrub by rememberUpdatedState(onScrub)
     val fraction by rememberUpdatedState(onDragFraction)
@@ -173,7 +180,7 @@ internal fun StageSeekBar(
             .height(26.dp)
             .semantics {
                 contentDescription = label
-                progressBarRangeInfo = ProgressBarRangeInfo(VideoTime.fraction(progress.positionMs, progress.durationMs), 0f..1f)
+                progressBarRangeInfo = ProgressBarRangeInfo(VideoTime.fraction(previewMs ?: progress.positionMs, progress.durationMs), 0f..1f)
                 setProgress { f ->
                     val total = progress.durationMs
                     if (total > 0) seek((f.coerceIn(0f, 1f) * total).toLong())
@@ -216,7 +223,7 @@ internal fun StageSeekBar(
             }
             .drawBehind {
                 val total = progress.durationMs
-                val f = VideoTime.fraction(shownMs(progress, drag.value, hold), total)
+                val f = VideoTime.fraction(shownMs(progress, drag.value, hold, preview), total)
                 val buffered = VideoTime.fraction(progress.bufferedMs, total)
                 val cy = size.height / 2f
                 val stroke = (3.dp + 2.dp * grow).toPx()
@@ -228,10 +235,10 @@ internal fun StageSeekBar(
     )
 }
 
-/** "1:23 / 10:45" over the video. */
+/** "1:23 / 10:45" over the video ([previewMs]: where a sideways slide is going). */
 @Composable
-internal fun StageTimes(progress: VideoProgress, pending: PendingSeek?, modifier: Modifier = Modifier, dragFraction: Float? = null) {
-    val second by remember(progress, pending, dragFraction) { derivedStateOf { shownMs(progress, dragFraction, pending) / 1000 } }
+internal fun StageTimes(progress: VideoProgress, pending: PendingSeek?, modifier: Modifier = Modifier, dragFraction: Float? = null, previewMs: Long? = null) {
+    val second by remember(progress, pending, dragFraction, previewMs) { derivedStateOf { shownMs(progress, dragFraction, pending, previewMs) / 1000 } }
     val total by remember(progress) { derivedStateOf { progress.durationMs } }
     val style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum")
     Text(

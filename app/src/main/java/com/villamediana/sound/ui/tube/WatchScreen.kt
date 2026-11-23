@@ -44,6 +44,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -1138,48 +1139,43 @@ private fun Stage(
                     }
                     // Bottom: time, full screen, and the seek bar along the edge.
                     if (error == null && player != null) {
-                        Column(
-                            Modifier
-                                .align(Alignment.BottomCenter)
-                                .fillMaxWidth()
-                                .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) else Modifier)
-                                .padding(horizontal = if (fullscreen) 20.dp else 10.dp)
-                                .padding(bottom = if (fullscreen) 6.dp else 0.dp),
-                        ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                if (live) {
-                                    Text(
-                                        stringResource(R.string.tube_live),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = sc.OnAccent,
-                                        modifier = Modifier.padding(start = 4.dp).clip(RoundedCornerShape(5.dp)).background(sc.Accent).padding(horizontal = 6.dp, vertical = 2.dp),
-                                    )
-                                } else {
-                                    StageTimes(progress, pending, Modifier.padding(start = 4.dp), dragFraction)
-                                }
-                                Spacer(Modifier.weight(1f))
-                                if (fullscreen && related.isNotEmpty()) {
-                                    StageButton(Icons.Rounded.VideoLibrary, stringResource(R.string.tube_more_videos), { actions.showPanel(true) }, size = 42.dp, iconSize = 22.dp)
-                                }
-                                StageButton(
-                                    if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
-                                    stringResource(if (fullscreen) R.string.video_exit_fullscreen else R.string.video_fullscreen),
-                                    actions::rotate,
-                                    size = 42.dp,
-                                )
-                            }
-                            if (!live) {
-                                StageSeekBar(
-                                    progress = progress,
-                                    pending = pending,
-                                    onSeek = actions::seekTo,
-                                    onScrub = actions::scrub,
-                                    onDragFraction = { dragFraction = it },
-                                    modifier = Modifier.padding(bottom = if (fullscreen) 2.dp else 0.dp),
-                                )
-                            }
-                        }
+                        StageBottom(
+                            progress = progress,
+                            pending = pending,
+                            live = live,
+                            fullscreen = fullscreen,
+                            moreVideos = related.isNotEmpty(),
+                            actions = actions,
+                            dragFraction = dragFraction,
+                            onDragFraction = { dragFraction = it },
+                            modifier = Modifier.align(Alignment.BottomCenter),
+                        )
                     }
+                }
+            }
+
+            // Sliding sideways in full screen: the rest of the controls step aside, but the time and the
+            // bar stay and go along with the finger (the frame of that moment shows in the middle).
+            val sliding = seekPreview
+            AnimatedVisibility(
+                visible = sliding != null && state.countdown == null && !panel && error == null && player != null && !live,
+                enter = fadeIn(tween(140)),
+                exit = fadeOut(tween(320)),
+                modifier = Modifier.matchParentSize(),
+            ) {
+                Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.55f to Color.Transparent, 1f to Color.Black.copy(alpha = 0.62f)))) {
+                    StageBottom(
+                        progress = progress,
+                        pending = pending,
+                        live = false,
+                        fullscreen = fullscreen,
+                        moreVideos = false,
+                        actions = actions,
+                        dragFraction = null,
+                        onDragFraction = {},
+                        previewMs = sliding,
+                        modifier = Modifier.align(Alignment.BottomCenter),
+                    )
                 }
             }
 
@@ -1271,6 +1267,68 @@ private fun Stage(
                 onOpen = onOpen,
                 onClose = { actions.showPanel(false) },
                 modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
+    }
+}
+
+/**
+ * Along the bottom of the video: the time (or LIVE), more videos and full screen, and the seek bar.
+ * [previewMs]: a sideways slide is under way — just the time and the bar, both at where it is going.
+ */
+@Composable
+private fun StageBottom(
+    progress: VideoProgress,
+    pending: PendingSeek?,
+    live: Boolean,
+    fullscreen: Boolean,
+    moreVideos: Boolean,
+    actions: WatchActions,
+    dragFraction: Float?,
+    onDragFraction: (Float?) -> Unit,
+    modifier: Modifier = Modifier,
+    previewMs: Long? = null,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .then(if (fullscreen) Modifier.windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom + WindowInsetsSides.Horizontal)) else Modifier)
+            .padding(horizontal = if (fullscreen) 20.dp else 10.dp)
+            .padding(bottom = if (fullscreen) 6.dp else 0.dp),
+    ) {
+        Row(Modifier.heightIn(min = 42.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (live) {
+                Text(
+                    stringResource(R.string.tube_live),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = sc.OnAccent,
+                    modifier = Modifier.padding(start = 4.dp).clip(RoundedCornerShape(5.dp)).background(sc.Accent).padding(horizontal = 6.dp, vertical = 2.dp),
+                )
+            } else {
+                StageTimes(progress, pending, Modifier.padding(start = 4.dp), dragFraction, previewMs)
+            }
+            Spacer(Modifier.weight(1f))
+            if (previewMs == null) {
+                if (fullscreen && moreVideos) {
+                    StageButton(Icons.Rounded.VideoLibrary, stringResource(R.string.tube_more_videos), { actions.showPanel(true) }, size = 42.dp, iconSize = 22.dp)
+                }
+                StageButton(
+                    if (fullscreen) Icons.Rounded.FullscreenExit else Icons.Rounded.Fullscreen,
+                    stringResource(if (fullscreen) R.string.video_exit_fullscreen else R.string.video_fullscreen),
+                    actions::rotate,
+                    size = 42.dp,
+                )
+            }
+        }
+        if (!live) {
+            StageSeekBar(
+                progress = progress,
+                pending = pending,
+                onSeek = actions::seekTo,
+                onScrub = actions::scrub,
+                onDragFraction = onDragFraction,
+                modifier = Modifier.padding(bottom = if (fullscreen) 2.dp else 0.dp),
+                previewMs = previewMs,
             )
         }
     }
