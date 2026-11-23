@@ -252,4 +252,30 @@
     <string name="tube_video_settings">Ajustes do vídeo</string>
     <string name="tube_quality">Qualidade</string>
     <string name="tube_captions_default">Automáticas · %s</string>
+    <!-- Perfil (código de recuperação, cofre) e o FreeVideo no computador. -->
+    <string name="tube_profile">Perfil</string>
+    <string name="tube_profile_name">Nome</string>
+    <string name="tube_profile_code">Código de recuperação</string>
+    <string name="tube_profile_copy">Copiar</string>
+    <string name="tube_profile_copied">Código copiado</string>
+    <string name="tube_profile_new_code">Gerar outro</string>
+    <string name="tube_profile_use_code">Usar outro código</string>
+    <string name="tube_profile_use">Usar</string>
+    <string name="tube_profile_code_wrong">Esse código não é de nenhum perfil.</string>
+    <string name="tube_profile_delete">Apagar perfil</string>
+    <string name="tube_profile_delete_q">Apagar o perfil?</string>
+    <string name="tube_profile_create">Criar perfil</string>
+    <string name="tube_profile_error">Não deu agora. Tente de novo.</string>
+    <string name="tube_computer">Computador</string>
+    <string name="tube_computer_link">Ligar</string>
+    <string name="tube_computer_link_q">Ligar este computador?</string>
+    <string name="tube_computer_link_safe">Só um código que você mesmo abriu.</string>
+    <string name="tube_computer_linked">Computador ligado: %1$s</string>
+    <string name="tube_computer_unlink">Desligar</string>
+    <string name="tube_computer_unlinked">Computador desligado</string>
+    <string name="tube_computer_shared">Só enquanto a aba estiver aberta</string>
+    <string name="tube_computer_not_code">Esse não é um código do FreeVideo.</string>
+    <string name="tube_computer_no_scanner">Não deu pra abrir a câmera. Aponte a câmera do celular pro código.</string>
+    <string name="tube_computer_expired">O código expirou. Mostre outro no computador.</string>
+    <string name="tube_computer_too_many">Computadores demais. Desligue um.</string>
 </resources>

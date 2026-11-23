@@ -284,6 +284,7 @@ fun LibraryScreen() {
                 Text(stringResource(R.string.tube_library_title), style = MaterialTheme.typography.headlineLarge, color = sc.Text, modifier = Modifier.weight(1f))
                 CircleIconButton(Icons.Rounded.Search, stringResource(R.string.tube_search), nav::openSearch, iconSize = 26.dp)
                 CircleIconButton(Icons.Outlined.Settings, stringResource(R.string.tube_settings), nav::openSettings)
+                ProfileButton(onClick = nav::openProfile)
             }
         }
         item(key = "stats") { WatchStats(history) }
@@ -379,4 +380,14 @@ private fun Stat(value: String, label: String) {
 @Composable
 internal fun OnFirst(block: suspend () -> Unit) {
     LaunchedEffect(Unit) { block() }
+}
+
+/** The profile's photo in the corner (tap: the profile, its code, the computers). */
+@Composable
+private fun ProfileButton(onClick: () -> Unit) {
+    val account = SoundApplication.graph.tube.account.account
+    val me by account.me.collectAsState()
+    androidx.compose.foundation.layout.Box(Modifier.padding(start = 4.dp, end = 6.dp)) {
+        Avatar(me?.avatar?.let { account.api.absolute(it) }, me?.name, size = 34, onClick = onClick)
+    }
 }

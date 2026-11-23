@@ -32,6 +32,8 @@ class SoundApplication : Application(), SingletonImageLoader.Factory {
         // FreeVideo: none of FreeSong's music work (downloads, profile/friends on the relay). The video
         // library's housekeeping, and new versions from FreeVideo's own GitHub releases.
         graph.scope.launch { runCatching { graph.tube.library.prune() } }
+        // The profile and its vault (made on the first launch, kept with the other devices of the profile).
+        runCatching { graph.tube.account.start() }
         // What 1.1.0 cached could mix two files of a video (blocks in the picture): dropped once, off the main thread.
         graph.scope.launch(kotlinx.coroutines.Dispatchers.IO) { runCatching { com.villamediana.sound.tube.player.VideoCache.purgeLegacy(this@SoundApplication) } }
         if (graph.updates.enabled) runCatching { com.villamediana.sound.update.UpdateCheckWorker.schedule(this) }

@@ -33,11 +33,13 @@ android {
         applicationId = "com.villamediana.video"
         minSdk = 26
         targetSdk = 36
-        versionCode = 10
-        versionName = "1.4.1"
+        versionCode = 11
+        versionName = "1.5.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         // FreeVideo has no relay: profiles, friends and jams stay off (the FreeSong relay is not shared).
         buildConfigField("String", "RELAY_URL", "\"\"")
+        // FreeVideo's own relay: the profile, its vault and the computers linked (never FreeSong's).
+        buildConfigField("String", "TUBE_RELAY_URL", "\"https://freevideo.simplyonegoal.com\"")
     }
 
     signingConfigs {
@@ -183,6 +185,7 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.serialization.json)
     implementation(libs.newpipe.extractor)
+    implementation(libs.code.scanner)
     // LiteRT (TensorFlow Lite) for Basic Pitch, the 200 KB model that hears the notes of a song (chords).
 
     testImplementation(libs.junit)

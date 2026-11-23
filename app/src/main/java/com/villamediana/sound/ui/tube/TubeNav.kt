@@ -18,6 +18,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object YouRoute
 @Serializable data object TubeSearchRoute
 @Serializable data object TubeSettingsRoute
+@Serializable data object TubeProfileRoute
 @Serializable data object SubscriptionListRoute
 
 /**
@@ -111,6 +112,7 @@ class TubeNavigator internal constructor(val controller: NavHostController, inte
     fun openPlaylist(url: String) = go(TubePlaylistRoute(url))
     fun openSearch() = go(TubeSearchRoute, single = true)
     fun openSettings() = go(TubeSettingsRoute, single = true)
+    fun openProfile() = go(TubeProfileRoute, single = true)
     fun openList(list: String) = go(VideoListRoute(list))
     fun openSubscriptionList() = go(SubscriptionListRoute)
 
@@ -138,7 +140,7 @@ val LocalTubeNav = staticCompositionLocalOf<TubeNavigator> { error("TubeNavigato
 
 internal fun NavDestination.isTab(): Boolean = hasRoute(FeedRoute::class) || hasRoute(SubsRoute::class) || hasRoute(YouRoute::class)
 /** A page that takes the whole screen: no bottom bar, and the video's bar stays out of the way. */
-internal fun NavDestination.isFull(): Boolean = hasRoute(TubeSettingsRoute::class)
+internal fun NavDestination.isFull(): Boolean = hasRoute(TubeSettingsRoute::class) || hasRoute(TubeProfileRoute::class)
 
 object VideoLists {
     const val HISTORY = "history"

@@ -241,4 +241,30 @@
     <string name="tube_video_settings">Ajustes del video</string>
     <string name="tube_quality">Calidad</string>
     <string name="tube_captions_default">Automáticos · %s</string>
+    <!-- Perfil (código de recuperação, cofre) e o FreeVideo no computador. -->
+    <string name="tube_profile">Perfil</string>
+    <string name="tube_profile_name">Nombre</string>
+    <string name="tube_profile_code">Código de recuperación</string>
+    <string name="tube_profile_copy">Copiar</string>
+    <string name="tube_profile_copied">Código copiado</string>
+    <string name="tube_profile_new_code">Generar otro</string>
+    <string name="tube_profile_use_code">Usar otro código</string>
+    <string name="tube_profile_use">Usar</string>
+    <string name="tube_profile_code_wrong">Ese código no es de ningún perfil.</string>
+    <string name="tube_profile_delete">Borrar perfil</string>
+    <string name="tube_profile_delete_q">¿Borrar el perfil?</string>
+    <string name="tube_profile_create">Crear perfil</string>
+    <string name="tube_profile_error">No se pudo ahora. Inténtalo de nuevo.</string>
+    <string name="tube_computer">Computadora</string>
+    <string name="tube_computer_link">Conectar</string>
+    <string name="tube_computer_link_q">¿Conectar esta computadora?</string>
+    <string name="tube_computer_link_safe">Solo un código que tú mismo abriste.</string>
+    <string name="tube_computer_linked">Computadora conectada: %1$s</string>
+    <string name="tube_computer_unlink">Desconectar</string>
+    <string name="tube_computer_unlinked">Computadora desconectada</string>
+    <string name="tube_computer_shared">Solo mientras la pestaña esté abierta</string>
+    <string name="tube_computer_not_code">Ese no es un código de FreeVideo.</string>
+    <string name="tube_computer_no_scanner">No se pudo abrir la cámara. Apunta la cámara del celular al código.</string>
+    <string name="tube_computer_expired">El código expiró. Muestra otro en la computadora.</string>
+    <string name="tube_computer_too_many">Demasiadas computadoras. Desconecta una.</string>
 </resources>

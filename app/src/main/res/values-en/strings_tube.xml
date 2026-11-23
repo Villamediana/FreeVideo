@@ -252,4 +252,30 @@
     <string name="tube_video_settings">Video settings</string>
     <string name="tube_quality">Quality</string>
     <string name="tube_captions_default">Automatic · %s</string>
+    <!-- Perfil (código de recuperação, cofre) e o FreeVideo no computador. -->
+    <string name="tube_profile">Profile</string>
+    <string name="tube_profile_name">Name</string>
+    <string name="tube_profile_code">Recovery code</string>
+    <string name="tube_profile_copy">Copy</string>
+    <string name="tube_profile_copied">Code copied</string>
+    <string name="tube_profile_new_code">New code</string>
+    <string name="tube_profile_use_code">Use another code</string>
+    <string name="tube_profile_use">Use</string>
+    <string name="tube_profile_code_wrong">That code isn\'t any profile\'s.</string>
+    <string name="tube_profile_delete">Delete profile</string>
+    <string name="tube_profile_delete_q">Delete the profile?</string>
+    <string name="tube_profile_create">Create profile</string>
+    <string name="tube_profile_error">Couldn\'t do it now. Try again.</string>
+    <string name="tube_computer">Computer</string>
+    <string name="tube_computer_link">Link</string>
+    <string name="tube_computer_link_q">Link this computer?</string>
+    <string name="tube_computer_link_safe">Only a code you opened yourself.</string>
+    <string name="tube_computer_linked">Computer linked: %1$s</string>
+    <string name="tube_computer_unlink">Unlink</string>
+    <string name="tube_computer_unlinked">Computer unlinked</string>
+    <string name="tube_computer_shared">Only while the tab is open</string>
+    <string name="tube_computer_not_code">That isn\'t a FreeVideo code.</string>
+    <string name="tube_computer_no_scanner">Couldn\'t open the camera. Point your phone\'s camera at the code.</string>
+    <string name="tube_computer_expired">The code expired. Show another one on the computer.</string>
+    <string name="tube_computer_too_many">Too many computers. Unlink one.</string>
 </resources>

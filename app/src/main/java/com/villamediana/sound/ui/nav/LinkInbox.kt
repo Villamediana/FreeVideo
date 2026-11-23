@@ -10,6 +10,9 @@ sealed interface Inbound {
 
     /** A voice request ("tocar … no Sound") with nothing in the library for it, to search online. */
     data class Query(val text: String) : Inbound
+
+    /** A computer's QR code (FreeVideo on the web) opened by the phone's camera: link it? */
+    data class Computer(val code: com.villamediana.sound.social.ComputerLink.Code) : Inbound
 }
 
 /**

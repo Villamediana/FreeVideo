@@ -2,18 +2,18 @@
 import { randomInt } from 'node:crypto';
 
 const WORDS = [
-  'vinil', 'acorde', 'batida', 'refrao', 'groove', 'melodia', 'ritmo', 'compasso', 'solo', 'coro',
-  'bossa', 'samba', 'tango', 'salsa', 'cumbia', 'bolero', 'jazz', 'blues', 'funk', 'reggae',
-  'indie', 'lofi', 'eco', 'nota', 'verso', 'ponte', 'fone', 'palco', 'agudo', 'grave',
-  'tambor', 'violao', 'piano', 'baixo', 'cuica', 'pandeiro', 'sanfona', 'guitarra', 'flauta', 'bateria',
+  'cena', 'quadro', 'tela', 'lente', 'take', 'corte', 'foco', 'zoom', 'luz', 'sombra',
+  'roteiro', 'trilha', 'enredo', 'plano', 'close', 'tomada', 'claquete', 'set', 'drone', 'tripe',
+  'cinema', 'serie', 'episodio', 'curta', 'doc', 'vlog', 'live', 'canal', 'pixel', 'frame',
+  'camera', 'filme', 'diretor', 'estreia', 'sessao', 'pipoca', 'telao', 'reprise', 'replay', 'bastidor',
 ];
 
 const RESERVED = new Set([
-  'admin', 'administrador', 'root', 'freesong', 'suporte', 'support', 'soporte', 'oficial', 'official',
+  'admin', 'administrador', 'root', 'freevideo', 'freesong', 'suporte', 'support', 'soporte', 'oficial', 'official',
   'moderador', 'moderator', 'sistema', 'system', 'null', 'undefined', 'me', 'eu', 'yo',
 ]);
-/** Ninguém se passa pela equipe: "freesong_oficial", "admin.br", "suporte2"... */
-const RESERVED_PARTS = ['freesong', 'admin', 'suporte', 'support', 'soporte', 'moderador', 'moderator'];
+/** Ninguém se passa pela equipe: "freevideo_oficial", "admin.br", "suporte2"... */
+const RESERVED_PARTS = ['freevideo', 'freesong', 'admin', 'suporte', 'support', 'soporte', 'moderador', 'moderator'];
 
 const PATTERN = /^[a-z][a-z0-9_.]{2,19}$/;
 
@@ -32,26 +32,6 @@ export function cleanText(raw, max) {
   return chars.length > max ? chars.slice(0, max).join('').trim() : text;
 }
 
-export const MAX_MESSAGE = 2000;
-const MAX_MESSAGE_LINES = 40;
-
-/**
- * Mensagem de conversa: como [cleanText], mas guarda as quebras de linha (no máximo uma linha em
- * branco seguida e [MAX_MESSAGE_LINES] linhas; o resto vira espaço) e vai até [max] caracteres.
- */
-export function cleanMessage(raw, max = MAX_MESSAGE) {
-  if (typeof raw !== 'string') return '';
-  const text = raw.toWellFormed().replace(/\r\n?/g, '\n').replace(INVISIBLE, '')
-    .replace(/(?!\n)[\p{Cc}\u2028\u2029]/gu, ' ').replace(MARK_PILE, '$1')
-    .replace(/[^\S\n]+/g, ' ').replace(/ *\n */g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-  const lines = text.split('\n');
-  const flat = lines.length > MAX_MESSAGE_LINES
-    ? [...lines.slice(0, MAX_MESSAGE_LINES - 1), lines.slice(MAX_MESSAGE_LINES - 1).join(' ')].join('\n')
-    : text;
-  const chars = [...flat];
-  return chars.length > max ? chars.slice(0, max).join('').trim() : flat;
-}
-
 /** Normaliza o que a pessoa digitou ("@Miguel.V " → "miguel.v"). */
 export function normalizeUsername(raw) {
   return String(raw ?? '').trim().replace(/^@/, '').toLowerCase();
@@ -65,7 +45,7 @@ export function usernameProblem(name) {
   return null;
 }
 
-/** "groove_482" e o nome de exibição "Groove 482". */
+/** "cena_482" e o nome de exibição "Cena 482". */
 export function randomIdentity() {
   const word = WORDS[randomInt(WORDS.length)];
   const number = randomInt(100, 10000);
