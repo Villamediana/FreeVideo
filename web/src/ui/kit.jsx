@@ -94,6 +94,54 @@ export function IconBtn({ icon, label, onClick, active = false, size = 20, kind 
   );
 }
 
+/** O ícone do volume: sem som, baixo, alto. */
+export const volumeIcon = (level) => (level === 0 ? 'mute' : level < 50 ? 'volumeLow' : 'volume');
+
+/**
+ * O volume do vídeo: o alto-falante (clique: sem som / com som) e a régua; a roda do mouse em cima
+ * também sobe e desce. [compact]: a régua só abre passando o mouse (o mini player).
+ */
+export function Volume({ compact = false }) {
+  const app = useApp();
+  const w = useWatch(app.watcher);
+  const box = useRef(null);
+  const level = w.muted ? 0 : w.volume;
+  // A roda do mouse: um ouvinte de verdade (o do React é passivo, e a página rolaria junto). Um dente
+  // da roda (100 px) é um passo de 5; o touchpad, de pouquinho em pouquinho, soma até dar um passo.
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return undefined;
+    let acc = 0;
+    const wheel = (e) => {
+      e.preventDefault();
+      acc += e.deltaMode === 1 ? e.deltaY * 33 : e.deltaY;
+      const steps = Math.trunc(acc / 100);
+      if (!steps) return;
+      acc -= steps * 100;
+      app.watcher.stepVolume(-steps * 5);
+    };
+    el.addEventListener('wheel', wheel, { passive: false });
+    return () => el.removeEventListener('wheel', wheel);
+  }, []);
+  return (
+    <div ref={box} className={`vol${compact ? ' compact' : ''}`}>
+      <IconBtn icon={volumeIcon(level)} label={app.t(level === 0 ? 'unmute' : 'mute')} size={compact ? 18 : 20} onClick={() => app.watcher.toggleMute()} />
+      <input
+        type="range"
+        className="vol-range"
+        min="0"
+        max="100"
+        step="1"
+        value={level}
+        aria-label={app.t('volume')}
+        title={`${app.t('volume')}: ${level}%`}
+        style={{ '--vol': `${level}%` }}
+        onChange={(e) => app.watcher.setVolume(Number(e.target.value))}
+      />
+    </div>
+  );
+}
+
 export function PlayBtn({ playing = false, onClick, size = 'md', label }) {
   return (
     <button type="button" className={`play-btn ${size}`} aria-label={label} title={label} onClick={(e) => { e.preventDefault(); e.stopPropagation(); onClick?.(); }}>

@@ -2,7 +2,7 @@
 // (curtir, mais tarde, compartilhar, não tenho interesse), a descrição, os comentários e o que vem a
 // seguir. O vídeo segue tocando no canto quando a pessoa sai daqui.
 import { useEffect, useRef, useState } from 'react';
-import { Cover, Failed, Icon, Loading, useApp, useLoad, useWatch } from './kit.jsx';
+import { Cover, Failed, Icon, Loading, Volume, useApp, useLoad, useWatch } from './kit.jsx';
 import { VideoRow } from './cards.jsx';
 
 /** Links e quebras de linha na descrição (sem virar HTML: só texto e <a> feitos aqui). */
@@ -99,6 +99,7 @@ export function Watch({ id, startMs }) {
                 ) : null}
               </div>
               <div className="watch-actions">
+                <Volume />
                 <button type="button" className={`pill${liked ? ' active' : ''}`} onClick={() => app.toggleSaved('liked', v)}><Icon name="thumbUp" size={17} fill={liked} />{d?.likes >= 0 ? <span>{app.compact(d.likes + (liked ? 1 : 0))}</span> : null}</button>
                 <button type="button" className={`pill${later ? ' active' : ''}`} onClick={() => app.toggleSaved('later', v)} title={app.t('watchLater')}><Icon name="later" size={17} /> {app.t('later')}</button>
                 <button type="button" className="pill" onClick={() => app.copy(`https://www.youtube.com/watch?v=${id}`)} title={app.t('copyLink')}><Icon name="share" size={17} /></button>

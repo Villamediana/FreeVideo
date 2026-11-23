@@ -1,13 +1,23 @@
 // O vídeo aberto: o player do YouTube (com os controles dele: qualidade, legendas, tela cheia,
 // velocidade) e o que vai pro histórico do cofre — quanto foi assistido de verdade e onde parou, como
 // o app anota (TubeLibrary.recordWatch): a cada 15 s tocando, ao pausar, ao trocar de vídeo e ao sair.
+// E o volume: o do FreeVideo (a régua, a roda do mouse, ↑/↓ e M), lembrado neste navegador e posto no
+// player sempre que ele fica pronto; mexido nos controles do YouTube, vem pra cá também.
 import { STATE, YouTubeFrame } from './youtube.js';
 
 const NOTE_EVERY_MS = 15_000;
+// Depois de mudar o volume daqui, o que o player ainda diz (o volume de antes) não volta pra régua.
+const VOLUME_QUIET_MS = 1500;
+
+export const clampVolume = (v) => (Number.isFinite(v) ? Math.round(Math.max(0, Math.min(100, v))) : 100);
 
 export class Watcher {
-  constructor({ host, onRecord = () => {}, onEnded = () => {}, onToast = () => {} }) {
-    Object.assign(this, { onRecord, onEnded, onToast });
+  constructor({ host, volume = 100, muted = false, onVolume = () => {}, onRecord = () => {}, onEnded = () => {}, onToast = () => {} }) {
+    Object.assign(this, { onVolume, onRecord, onEnded, onToast });
+    this.volume = clampVolume(volume);
+    this.muted = muted === true;
+    this.volumeQuietUntil = 0;
+    this.volumeShownAt = 0; // a última mudança pelo teclado ou pela roda (o aviso em cima do vídeo)
     this.video = null;
     this.state = STATE.UNSTARTED;
     this.time = 0;
@@ -24,6 +34,8 @@ export class Watcher {
       onState: (s) => this.onState(s),
       onTime: (t, d) => this.onTime(t, d),
       onError: (code) => this.onError(code),
+      onReady: () => this.applyVolume(),
+      onVolume: (v, m) => this.heardVolume(v, m),
     });
     // O frame do YouTube já pronto: o primeiro play é um comando, como os outros.
     this.frame.warm();
@@ -90,6 +102,49 @@ export class Watcher {
 
   seek(seconds) {
     this.frame.seek(Math.max(0, seconds));
+  }
+
+  /** O volume (0–100). Subir tira o "sem som". [show]: veio do teclado ou da roda (aparece no vídeo). */
+  setVolume(v, { show = false } = {}) {
+    const volume = clampVolume(v);
+    this.changeVolume(volume, volume > 0 ? false : this.muted, show);
+  }
+
+  /** Sobe ([step] > 0) ou desce o volume; subir com o som desligado religa ele. */
+  stepVolume(step, { show = false } = {}) {
+    const from = this.muted && step > 0 ? 0 : this.volume;
+    this.setVolume(from + step, { show });
+  }
+
+  /** Sem som / com som (religar num volume zero volta num volume que se ouve). */
+  toggleMute({ show = false } = {}) {
+    if (this.muted || this.volume === 0) this.changeVolume(this.volume === 0 ? 30 : this.volume, false, show);
+    else this.changeVolume(this.volume, true, show);
+  }
+
+  changeVolume(volume, muted, show) {
+    if (volume === this.volume && muted === this.muted && !show) return;
+    this.volumeQuietUntil = performance.now() + VOLUME_QUIET_MS;
+    if (volume !== this.volume) this.frame.volume(volume);
+    if (muted !== this.muted) this.frame.mute(muted);
+    this.set({ volume, muted, volumeShownAt: show ? performance.now() : this.volumeShownAt });
+    this.onVolume(volume, muted);
+  }
+
+  /** O player ficou pronto (o frame nasceu ou recarregou): com o volume daqui. */
+  applyVolume() {
+    this.volumeQuietUntil = performance.now() + VOLUME_QUIET_MS;
+    this.frame.volume(this.volume);
+    this.frame.mute(this.muted);
+  }
+
+  /** O player disse o volume dele: mexido nos controles do YouTube, a régua daqui vai junto. */
+  heardVolume(volume, muted) {
+    if (performance.now() < this.volumeQuietUntil) return;
+    const v = clampVolume(volume);
+    if (v === this.volume && muted === this.muted) return;
+    this.set({ volume: v, muted });
+    this.onVolume(v, muted);
   }
 
   onState(s) {

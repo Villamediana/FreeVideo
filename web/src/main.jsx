@@ -174,6 +174,10 @@ async function linked({ store, shared, t, lang }) {
 
   const watcher = new Watcher({
     host: document.getElementById('yt-dock'),
+    // O volume é deste computador (não vai pro cofre: o celular tem o dele).
+    volume: prefs.volume ?? 100,
+    muted: prefs.muted === true,
+    onVolume: (volume, muted) => setPrefs({ ...prefs, volume, muted }, { quiet: true }),
     onRecord: (video, positionMs, durationMs, addMs, newVisit) => {
       lastOwnNote = Date.now();
       sync.change((v) => edit.watch(v, video, positionMs, durationMs, addMs, newVisit, lastOwnNote), { quiet: true });

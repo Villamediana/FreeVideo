@@ -102,6 +102,25 @@ await page.waitForTimeout(6000);
 await shot('03-video');
 const dock = await page.evaluate(() => document.querySelector('#yt-dock iframe')?.src ?? null);
 check(!!dock && dock.includes('youtube-nocookie.com/embed/') && dock.includes('controls=1'), 'o player do YouTube abriu no palco');
+// O volume do FreeVideo: a régua embaixo do vídeo; ↓ e M pelo teclado (foco na página), a roda do
+// mouse em cima dele; lembrado neste navegador. (O som em si só dá pra ouvir num computador de casa.)
+const vol = page.locator('.watch-actions .vol-range');
+check(await vol.count() === 1 && (await vol.inputValue()) === '100', 'a régua do volume está embaixo do vídeo (100%)');
+await page.locator('.watch-title').click();
+await page.keyboard.press('ArrowDown');
+await page.keyboard.press('ArrowDown');
+const hud = await page.locator('.vol-hud').innerText().catch(() => '');
+check((await vol.inputValue()) === '90' && hud.includes('90%'), `↓ abaixa o volume e ele aparece em cima do vídeo ("${hud.replace(/\s+/g, ' ')}")`);
+await shot('03b-volume');
+await page.keyboard.press('m');
+const mutedNow = await vol.inputValue();
+await page.keyboard.press('m');
+check(mutedNow === '0' && (await vol.inputValue()) === '90', 'M tira e devolve o som');
+await page.locator('.watch-actions .vol').hover();
+await page.mouse.wheel(0, -100);
+await page.waitForTimeout(300);
+const kept = await page.evaluate(() => JSON.parse(localStorage.getItem('freevideo-prefs') || '{}'));
+check((await vol.inputValue()) === '95' && kept.volume === 95 && kept.muted === false, `a roda do mouse sobe, e o volume fica lembrado neste navegador (${kept.volume})`);
 // Inscrever-se aqui → chega no celular
 const chName = await page.locator('.watch-ch-name').innerText();
 const wasSubscribed = (await page.locator('.watch-channel .pill').innerText()).includes('Inscrito');
@@ -127,6 +146,7 @@ check(await page.locator('.vrow', { hasText: 'Do celular:' }).count() === 1, `o 
 // O vídeo continua no canto
 await shot('05-mais-tarde-mini');
 check(await page.locator('.mini-bar').count() === 1, 'o vídeo segue pequeno no canto');
+check(await page.locator('.mini-bar .vol-range').count() === 1, 'o mini player tem o volume');
 
 // Recarregar a página: o vídeo volta no canto
 const miniTitle = await page.locator('.mini-bar .mini-title b').innerText().catch(() => '');
@@ -134,6 +154,8 @@ await page.reload();
 await page.waitForSelector('.mini-bar', { timeout: 30_000 }).catch(() => {});
 const miniAgain = await page.locator('.mini-bar .mini-title b').innerText().catch(() => '');
 check(!!miniTitle && miniAgain === miniTitle, `recarregar volta com o vídeo no canto ("${miniAgain}")`);
+const volAgain = await page.locator('.mini-bar .vol-range').inputValue().catch(() => '');
+check(volAgain === '95', `recarregar mantém o volume (${volAgain})`);
 
 // O celular está vendo outro (o histórico anota onde parou): fechado o daqui, o mini player mostra o do
 // celular, pausado onde ele está

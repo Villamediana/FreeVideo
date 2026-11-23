@@ -2,7 +2,7 @@
 // Biblioteca, Histórico, os canais seguidos), a tela aberta e o vídeo — no palco da página do vídeo, ou
 // pequeno no canto enquanto se navega.
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Cover, Icon, IconBtn, Logo, Menu, Toasts, useApp, useWatch } from './kit.jsx';
+import { Cover, Icon, IconBtn, Logo, Menu, Toasts, Volume, useApp, useWatch, volumeIcon } from './kit.jsx';
 import { Home } from './home.jsx';
 import { Watch } from './watch.jsx';
 import { Channel, Library, List, Playlist, Search, Subscriptions } from './pages.jsx';
@@ -146,15 +146,42 @@ function Dock({ route }) {
     window.addEventListener('resize', place);
     return () => { cancelAnimationFrame(raf); ro.disconnect(); scroller?.removeEventListener('scroll', place); window.removeEventListener('resize', place); };
   }, [stage, has, route.name]);
-  if (!has || stage) return null;
+  if (!has) return null;
   return (
-    <div className="mini-bar">
-      <button type="button" className="mini-title" onClick={() => { location.hash = `/watch/${w.video.id}`; }} title={w.video.title}>
-        <b>{w.video.title}</b><span>{w.video.channelName}</span>
-      </button>
-      <IconBtn icon={w.playing ? 'pause' : 'play'} fill label={app.t(w.playing ? 'pause' : 'play')} size={18} onClick={() => w.toggle()} />
-      <IconBtn icon="expand" label={app.t('open')} size={18} onClick={() => { location.hash = `/watch/${w.video.id}`; }} />
-      <IconBtn icon="close" label={app.t('close')} size={18} onClick={() => app.closeVideo()} />
+    <>
+      {stage ? null : (
+        <div className="mini-bar">
+          <button type="button" className="mini-title" onClick={() => { location.hash = `/watch/${w.video.id}`; }} title={w.video.title}>
+            <b>{w.video.title}</b><span>{w.video.channelName}</span>
+          </button>
+          <Volume compact />
+          <IconBtn icon={w.playing ? 'pause' : 'play'} fill label={app.t(w.playing ? 'pause' : 'play')} size={18} onClick={() => w.toggle()} />
+          <IconBtn icon="expand" label={app.t('open')} size={18} onClick={() => { location.hash = `/watch/${w.video.id}`; }} />
+          <IconBtn icon="close" label={app.t('close')} size={18} onClick={() => app.closeVideo()} />
+        </div>
+      )}
+      <VolumeHud host={host} />
+    </>
+  );
+}
+
+/** O volume mudado pelo teclado (↑/↓, M): aparece um instante no meio do vídeo. */
+function VolumeHud({ host }) {
+  const app = useApp();
+  const w = useWatch(app.watcher);
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (!w.volumeShownAt) return undefined;
+    setShown(true);
+    const t = setTimeout(() => setShown(false), 900);
+    return () => clearTimeout(t);
+  }, [w.volumeShownAt]);
+  if (!shown || !host) return null;
+  const r = host.getBoundingClientRect();
+  const level = w.muted ? 0 : w.volume;
+  return (
+    <div className="vol-hud" role="status" style={{ left: `${r.left + r.width / 2}px`, top: `${r.top + r.height / 2}px` }}>
+      <Icon name={volumeIcon(level)} size={22} /><b>{level}%</b>
     </div>
   );
 }
@@ -201,10 +228,21 @@ export function App() {
   useEffect(() => { main.current?.scrollTo(0, 0); }, [route.name, route.id, route.params.get('q'), route.params.get('type'), route.params.get('t')]);
   useEffect(() => {
     const key = (e) => {
-      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName);
+      // A régua do volume não é "digitando": M nela ainda tira o som (as setas nela, ela mesma cuida).
+      const slider = e.target.tagName === 'INPUT' && e.target.type === 'range';
+      const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName) && !slider;
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); window.dispatchEvent(new Event('freevideo:search')); return; }
       if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === '/') { e.preventDefault(); window.dispatchEvent(new Event('freevideo:search')); }
+      if (e.key === '/') { e.preventDefault(); window.dispatchEvent(new Event('freevideo:search')); return; }
+      // O volume pelo teclado (com o foco na página; dentro do player valem as teclas do YouTube):
+      // M liga e desliga o som; ↑/↓ na página do vídeo (nas outras, as setas rolam a lista).
+      const w = app.watcher;
+      if (!w.video) return;
+      if (e.key === 'm' || e.key === 'M') { e.preventDefault(); w.toggleMute({ show: true }); return; }
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && !slider && location.hash.startsWith('#/watch/')) {
+        e.preventDefault();
+        w.stepVolume(e.key === 'ArrowUp' ? 5 : -5, { show: true });
+      }
     };
     window.addEventListener('keydown', key);
     return () => window.removeEventListener('keydown', key);

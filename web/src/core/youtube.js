@@ -1,7 +1,7 @@
 // O player do YouTube num frame (youtube-nocookie.com), comandado por mensagens — o mesmo protocolo
 // que a iframe_api.js do YouTube usa, sem carregar script de fora na página (a CSP não deixa, e nenhum
 // script de terceiro roda com acesso ao cofre). O som e a imagem tocam dentro do frame; daqui saem só
-// os comandos (tocar, pausar, pular pra, volume) e chegam o tempo, o estado e os erros.
+// os comandos (tocar, pausar, pular pra, volume) e chegam o tempo, o estado, o volume e os erros.
 //
 // Estados (os do YouTube): -1 não começou, 0 acabou, 1 tocando, 2 pausado, 3 carregando, 5 pronto.
 // Erros: 2 id inválido, 5 erro do HTML5, 100 não existe, 101/150 o dono não deixa tocar fora do YouTube,
@@ -15,8 +15,8 @@ export class YouTubeFrame {
    * [host]: o elemento onde o frame mora (nunca muda de lugar no DOM: mover um iframe recarrega ele).
    * [controls]: os controles do próprio YouTube (o FreeVideo usa; o FreeSong tem os seus).
    */
-  constructor(host, { controls = false, onState = () => {}, onTime = () => {}, onError = () => {}, onReady = () => {}, onBlocked = () => {} } = {}) {
-    Object.assign(this, { host, controls, onState, onTime, onError, onReady, onBlocked });
+  constructor(host, { controls = false, onState = () => {}, onTime = () => {}, onError = () => {}, onReady = () => {}, onBlocked = () => {}, onVolume = () => {} } = {}) {
+    Object.assign(this, { host, controls, onState, onTime, onError, onReady, onBlocked, onVolume });
     this.frame = null;
     this.ready = false;
     this.queue = [];
@@ -24,6 +24,8 @@ export class YouTubeFrame {
     this.time = 0;
     this.duration = 0;
     this.videoId = null;
+    this.vol = null; // o volume (0–100) e o "sem som" que o player diz ter (null: ainda não disse)
+    this.muted = null;
     this.id = 1;
     this.listen = (e) => this.message(e);
     window.addEventListener('message', this.listen);
@@ -144,6 +146,14 @@ export class YouTubeFrame {
         this.onTime(this.time, this.duration);
       }
       if (Number.isInteger(i.playerState)) this.setState(i.playerState);
+      // O volume (mexido também nos controles do próprio YouTube).
+      const vol = Number.isFinite(i.volume) ? Math.round(Math.max(0, Math.min(100, i.volume))) : this.vol;
+      const muted = typeof i.muted === 'boolean' ? i.muted : this.muted;
+      if (vol != null && muted != null && (vol !== this.vol || muted !== this.muted)) {
+        this.vol = vol;
+        this.muted = muted;
+        this.onVolume(vol, muted);
+      }
       const vid = i.videoData?.video_id;
       if (typeof vid === 'string' && vid && vid !== this.videoId && /^[A-Za-z0-9_-]{11}$/.test(vid)) this.playing = vid;
     }

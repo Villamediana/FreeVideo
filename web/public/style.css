@@ -203,6 +203,15 @@ h2.day { font-size: 16px; text-transform: capitalize; margin: 24px 0 12px; }
 .dock.mini { right: 16px; bottom: 60px; width: 400px; height: 225px; border-radius: 12px 12px 0 0; box-shadow: var(--shadow); }
 .dock.empty { opacity: 0; pointer-events: none; }
 .mini-bar { position: fixed; right: 16px; bottom: 16px; width: 400px; height: 44px; z-index: 41; display: flex; align-items: center; gap: 2px; padding: 0 4px 0 12px; background: var(--s2); border-radius: 0 0 12px 12px; box-shadow: var(--shadow); }
+/* O volume: alto-falante + régua (na página do vídeo, como os outros botões; no mini player, a régua abre passando o mouse). */
+.vol { display: inline-flex; align-items: center; height: 36px; padding-right: 14px; border-radius: 99px; background: var(--s1); }
+.vol .icon-btn { width: 36px; height: 36px; }
+.vol-range { width: 92px; height: 20px; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.vol.compact { height: 40px; padding-right: 0; background: none; }
+.vol.compact .icon-btn { width: 36px; height: 36px; }
+.vol.compact .vol-range { width: 0; opacity: 0; transition: width .18s var(--ease), opacity .18s, margin .18s; }
+.vol.compact:hover .vol-range, .vol.compact:focus-within .vol-range { width: 72px; opacity: 1; margin-right: 6px; }
+.vol-hud { position: fixed; z-index: 45; transform: translate(-50%, -50%); display: flex; align-items: center; gap: 8px; padding: 9px 16px; border-radius: 99px; background: rgba(0, 0, 0, .66); color: #fff; font-size: 15px; pointer-events: none; font-variant-numeric: tabular-nums; }
 .mini-title { flex: 1; min-width: 0; display: flex; flex-direction: column; text-align: left; line-height: 1.2; }
 .mini-title b, .mini-title span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
 .mini-title span { color: var(--muted); font-size: 12px; }
