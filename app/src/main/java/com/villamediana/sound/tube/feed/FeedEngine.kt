@@ -400,10 +400,12 @@ object FeedEngine {
         val kw = wordMatch(v.title, taste.words)
         val session = maxOf(wordMatch(v.title, taste.sessionWords), if (ch in taste.sessionChannels) 0.6 else 0.0)
         val age = v.uploadedAt?.let { (now - it).coerceAtLeast(0) }
-        val fresh = age?.let { decay(it, halfLifeDays = 7.0) } ?: 0.35
+        val fresh = freshness(age)
         val pop = if (v.views > 0) ((log10(v.views + 1.0) - 3) / 4).coerceIn(0.0, 1.0) else 0.3
         val length = durationFit(v.durationMs, taste.duration)
-        var score = 1.0 * rel + 0.5 * aff + 0.3 * sub + 0.55 * kw + 0.4 * session + 0.3 * fresh + 0.12 * pop + 0.15 * length
+        var score = 1.0 * rel + 0.5 * aff + 0.3 * sub + 0.55 * kw + 0.4 * session + 0.6 * fresh + 0.12 * pop + 0.15 * length
+        // Old videos weigh less — unless they are very much the person's thing (then age matters less).
+        factor *= agedFactor(age, fit = maxOf(kw, aff, session).coerceIn(0.0, 1.0))
         if (best.reason.source == Source.SUBSCRIPTION) {
             // A new upload of a followed channel is news; an old one is just catalog.
             score += 0.25 * fresh
@@ -413,6 +415,30 @@ object FeedEngine {
         // A channel the person keeps leaving: much less of it.
         if (aff < -0.1) factor *= (1 + aff * 1.5).coerceAtLeast(0.15)
         return Entry(v, (score * factor).coerceAtLeast(0.0), best.reason, list.map { it.reason.source }.toSet())
+    }
+
+    /**
+     * 0..1: how new a video is. The first days count most (a week's half-life), and the last months
+     * still count a little (a quarter's), so a video of last month beats one of last year.
+     */
+    fun freshness(ageMs: Long?): Double {
+        if (ageMs == null) return 0.3
+        return 0.65 * decay(ageMs, halfLifeDays = 7.0) + 0.35 * decay(ageMs, halfLifeDays = 90.0)
+    }
+
+    /**
+     * What an old video keeps of its score: all of it up to a year, then less and less (down to 0.5 at
+     * three years). [fit] (0..1: how much it is about what the person likes) gives back up to half of it.
+     */
+    fun agedFactor(ageMs: Long?, fit: Double): Double {
+        if (ageMs == null) return 1.0
+        val years = ageMs / (365 * DAY)
+        val base = when {
+            years <= 1.0 -> 1.0
+            years >= 3.0 -> 0.5
+            else -> 1.0 - 0.25 * (years - 1.0)
+        }
+        return 1.0 - (1.0 - base) * (1.0 - 0.5 * fit)
     }
 
     /** 0..1: how well a length fits what the person watches to the end (0.5 while unknown). */

@@ -117,6 +117,9 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     // Links shared to FreeVideo or opened from the browser: the video, channel or playlist.
     val inbound by incoming.collectAsState()
     val context = LocalContext.current
+    // YouTube in the language on screen (it changes with the app's language).
+    val locales = androidx.compose.ui.platform.LocalConfiguration.current.locales
+    LaunchedEffect(locales) { com.villamediana.sound.tube.ContentLanguage.apply(context) }
     LaunchedEffect(inbound) {
         val item = inbound ?: return@LaunchedEffect
         incoming.value = null
@@ -358,7 +361,7 @@ private fun androidx.compose.foundation.layout.RowScope.BarItem(label: String, i
  * The video going on while browsing: a straight bar across the screen, over the tabs. On the left the
  * video's picture (the video itself while it plays; its thumbnail, with a play mark, while paused),
  * then title and channel, a big play/pause and close. The line along its bottom is how far it is.
- * Tap it to come back to the video.
+ * Tap it (or push it up) to come back to the video; push it to a side to close it.
  */
 @OptIn(androidx.media3.common.util.UnstableApi::class)
 @Composable
@@ -370,7 +373,7 @@ private fun MiniPlayer(state: TubePlayer.State, player: TubePlayer, onOpen: () -
     val accent = sc.Accent
     val track = sc.Hairline
     val playLabel = stringResource(if (state.playing) R.string.video_pause else R.string.video_play)
-    Column(Modifier.fillMaxWidth().background(sc.Surface2)) {
+    Column(Modifier.fillMaxWidth().miniSwipe(onOpen = onOpen, onClose = player::close).background(sc.Surface2)) {
         Box(Modifier.fillMaxWidth().height(1.dp).background(sc.Hairline))
         Row(
             Modifier.fillMaxWidth().height(MINI_HEIGHT).clickable(onClick = onOpen),

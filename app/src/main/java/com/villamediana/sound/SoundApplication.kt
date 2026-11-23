@@ -21,6 +21,8 @@ class SoundApplication : Application(), SingletonImageLoader.Factory {
         runCatching { com.villamediana.sound.update.ExitReport.catchCrashes(this) }
         graph = AppGraph(this)
         instance = this
+        // YouTube answers in the language the app shows (not a phone language the app has no words for).
+        runCatching { com.villamediana.sound.tube.ContentLanguage.apply(this) }
         Notifications.createChannels(this)
         // FreeVideo: none of FreeSong's music work (downloads, profile/friends on the relay). The video
         // library's housekeeping, and new versions from FreeVideo's own GitHub releases.

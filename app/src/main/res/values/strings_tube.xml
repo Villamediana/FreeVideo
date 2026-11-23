@@ -235,4 +235,5 @@
         <item quantity="one">canal</item>
         <item quantity="other">canais</item>
     </plurals>
+    <string name="tube_speed">Velocidade</string>
 </resources>

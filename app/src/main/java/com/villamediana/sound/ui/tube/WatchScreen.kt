@@ -171,8 +171,10 @@ fun WatchScreen(route: WatchRoute) {
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val fullscreen = landscape || mode.tall
     var panel by remember { mutableStateOf(false) }
+    var speedMenu by remember { mutableStateOf(false) }
     LaunchedEffect(fullscreen) { if (!fullscreen) panel = false }
-    BackHandler(enabled = fullscreen) { if (panel) panel = false else mode.exit() }
+    BackHandler(enabled = fullscreen && !speedMenu) { if (panel) panel = false else mode.exit() }
+    BackHandler(enabled = speedMenu) { speedMenu = false }
 
     val flags = rememberFlags(exo)
     val progress = rememberVideoProgress(exo)
@@ -189,7 +191,7 @@ fun WatchScreen(route: WatchRoute) {
     var rewoundFromPlaying by remember { mutableStateOf(false) }
     var beforeTap by remember { mutableStateOf<OverlayState?>(null) }
     val scope = rememberCoroutineScope()
-    val pinned = scrubbing || loading || error != null || panel
+    val pinned = scrubbing || loading || error != null || panel || speedMenu
 
     // The drag on the video (px, up < 0): the stage follows it, and past [threshold] it acts.
     val drag = remember { Animatable(0f) }
@@ -279,14 +281,14 @@ fun WatchScreen(route: WatchRoute) {
                 rewindJob?.cancel()
                 rewindJob = null
                 if (!active) {
-                    player.setSpeed(1f)
+                    player.boost(false)
                     if (rewoundFromPlaying) player.play()
                     rewoundFromPlaying = false
                     return
                 }
                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                 if (side == SeekSide.FORWARD) {
-                    player.setSpeed(2f)
+                    player.boost(true)
                     return
                 }
                 val p = exo ?: return
@@ -345,6 +347,18 @@ fun WatchScreen(route: WatchRoute) {
                 panel = show
                 overlay = overlay.touch(now())
             }
+
+            override fun showSpeed(show: Boolean) {
+                speedMenu = show
+                overlay = overlay.touch(now())
+            }
+
+            override fun pickSpeed(speed: Float) {
+                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                player.setSpeed(speed)
+                speedMenu = false
+                overlay = overlay.touch(now())
+            }
         }
     }
 
@@ -378,6 +392,7 @@ fun WatchScreen(route: WatchRoute) {
                 drag = { drag.value },
                 threshold = threshold,
                 panel = panel,
+                speedMenu = speedMenu,
                 related = details.related,
                 onOpen = { v -> nav.openVideo(v) },
                 modifier = (if (fullscreen) Modifier.fillMaxSize() else Modifier.fillMaxWidth().height(stageHeight)).zIndex(1f),
@@ -456,6 +471,8 @@ internal interface WatchActions {
     fun playNext()
     fun cancelNext()
     fun showPanel(show: Boolean)
+    fun showSpeed(show: Boolean)
+    fun pickSpeed(speed: Float)
 }
 
 // ------------------------------------------------------------------ stage
@@ -483,6 +500,7 @@ private fun Stage(
     drag: () -> Float,
     threshold: Float,
     panel: Boolean,
+    speedMenu: Boolean,
     related: List<VideoItem>,
     onOpen: (VideoItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -567,6 +585,10 @@ private fun Stage(
                                 Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (channel.isNotBlank()) Text(channel, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
+                            if (!live && error == null) {
+                                Spacer(Modifier.width(12.dp))
+                                StageSpeedPill(state.speed, { actions.showSpeed(true) })
+                            }
                         }
                     } else {
                         StageButton(
@@ -576,18 +598,23 @@ private fun Stage(
                             Modifier.align(Alignment.TopStart).padding(4.dp),
                             iconSize = 30.dp,
                         )
-                        if (state.height > 0) {
-                            Text(
-                                stringResource(R.string.tube_quality_now, state.height),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = Color.White,
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .padding(14.dp)
-                                    .clip(RoundedCornerShape(6.dp))
-                                    .background(Color.White.copy(alpha = 0.16f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                            )
+                        Row(
+                            Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            if (state.height > 0) {
+                                Text(
+                                    stringResource(R.string.tube_quality_now, state.height),
+                                    style = MaterialTheme.typography.labelMedium,
+                                    color = Color.White,
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(Color.White.copy(alpha = 0.16f))
+                                        .padding(horizontal = 6.dp, vertical = 2.dp),
+                                )
+                            }
+                            if (!live && error == null) StageSpeedPill(state.speed, { actions.showSpeed(true) })
                         }
                     }
                     // Center: back 10 s, play/pause, forward 10 s.
@@ -685,6 +712,13 @@ private fun Stage(
                     }
                 }
             }
+            StageSpeedPicker(
+                visible = speedMenu,
+                speed = state.speed,
+                onPick = actions::pickSpeed,
+                onClose = { actions.showSpeed(false) },
+                modifier = Modifier.matchParentSize(),
+            )
             DragHint(drag, threshold, fullscreen, panel, Modifier.align(Alignment.Center))
             StageSpinner(loading, Modifier.align(Alignment.Center))
             state.countdown?.let { seconds -> UpNextOverlay(seconds, state.upNext?.title.orEmpty(), state.upNext?.thumbnailUrl, actions, fullscreen) }

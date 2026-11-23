@@ -329,4 +329,27 @@ class FeedEngineTest {
         assertEquals(entries.map { it.reason }, back.map { it.reason })
         dir.deleteRecursively()
     }
+
+    @Test
+    fun newVideosComeBeforeOldOnesOfTheSameKind() {
+        // Same source, same strength, same words: only the age differs.
+        val ages = listOf(1_100L, 500L, 30L, 3L)
+        val titles = listOf("Bolo de cenoura fofinho", "Pizza napolitana em casa", "Lasanha de berinjela leve", "Torta de limão gelada")
+        val videos = ages.mapIndexed { i, age -> video("age$age", 10 + i, title = titles[i], ageDays = age) }
+        val taste = FeedEngine.buildTaste(FeedEngine.Input(now = now))
+        for (seed in 1L..5L) {
+            val ranked = FeedEngine.rank(videos.map { Candidate(it, 1.0, Reason.Topic("receitas")) }, taste, now, seed = seed)
+            assertEquals(listOf("age3", "age30", "age500", "age1100"), ranked.map { it.video.id.trimEnd('_') })
+        }
+        // Last month still beats last year by a clear margin (not a coin toss between refreshes).
+        assertTrue(FeedEngine.freshness(30 * day) > FeedEngine.freshness(365 * day) + 0.15)
+    }
+
+    @Test
+    fun anOldVideoVeryMuchAboutWhatThePersonLikesKeepsMoreOfItsScore() {
+        assertEquals(1.0, FeedEngine.agedFactor(200 * day, fit = 0.0), 1e-9)
+        assertEquals(0.5, FeedEngine.agedFactor(4 * 365 * day, fit = 0.0), 1e-9)
+        assertEquals(0.75, FeedEngine.agedFactor(4 * 365 * day, fit = 1.0), 1e-9)
+        assertEquals(1.0, FeedEngine.agedFactor(null, fit = 0.0), 1e-9)
+    }
 }

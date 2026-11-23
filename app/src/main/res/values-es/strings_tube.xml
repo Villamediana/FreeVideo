@@ -224,4 +224,5 @@
         <item quantity="one">canal</item>
         <item quantity="other">canales</item>
     </plurals>
+    <string name="tube_speed">Velocidad</string>
 </resources>

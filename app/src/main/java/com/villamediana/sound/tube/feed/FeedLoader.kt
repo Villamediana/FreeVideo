@@ -61,7 +61,7 @@ class FeedLoader(
         val shownCount: Int get() = shown.size
     }
 
-    internal class Catalog(val name: String, val subscribed: Boolean, var channel: ChannelItem? = null, var page: TubePage<VideoItem>? = null, var started: Boolean = false)
+    internal class Catalog(val name: String, val subscribed: Boolean, var channel: ChannelItem? = null, var page: TubePage<VideoItem>? = null, var started: Boolean = false, var pages: Int = 0)
 
     fun newSession(seed: Long = clock()): Session = Session(seed)
 
@@ -209,12 +209,15 @@ class FeedLoader(
             val page = source.channel(url)
             catalog.channel = page.channel
             catalog.page = page.videos
+            catalog.pages = 1
             return page.videos.items
         }
         val page = catalog.page ?: return emptyList()
         val channel = catalog.channel ?: return emptyList()
         val next = source.moreChannelVideos(page, channel)
-        catalog.page = next
+        catalog.pages++
+        // Deeper than that a channel's tab is years back: the feed keeps to what is recent.
+        catalog.page = next.takeIf { catalog.pages < MAX_CATALOG_PAGES }
         return next.items
     }
 
@@ -298,6 +301,8 @@ class FeedLoader(
         private const val PARALLEL = 6
         private const val TIMEOUT_MS = 15_000L
         private const val MAX_SUBSCRIPTIONS = 40
+        /** Pages of a channel's videos tab the feed reads (about 30 videos each): further back is years ago. */
+        private const val MAX_CATALOG_PAGES = 3
         // "Trending" (YouTube took that page down in 2025) and the movies chart answer nothing now.
         private val KIOSK_ORDER = listOf(Kiosks.MUSIC, Kiosks.GAMING, Kiosks.LIVE, Kiosks.PODCASTS)
     }

@@ -64,7 +64,7 @@ class TubePlayer(
     scope: CoroutineScope,
     private val source: TubeSource,
     private val library: TubeLibrary,
-    settings: TubeSettings,
+    private val settings: TubeSettings,
 ) {
     data class State(
         val video: VideoItem? = null,
@@ -78,6 +78,8 @@ class TubePlayer(
         val upNext: VideoItem? = null,
         /** The stream's height ("720p"), once known. */
         val height: Int = 0,
+        /** The speed chosen (kept for the next videos); holding the video plays at 2× for a while without changing it. */
+        val speed: Float = 1f,
     ) {
         val active: Boolean get() = video != null
     }
@@ -94,7 +96,15 @@ class TubePlayer(
     @Volatile private var prefs = TubePrefs()
 
     init {
-        main.launch { settings.prefs.collect { prefs = it } }
+        main.launch {
+            settings.prefs.collect {
+                prefs = it
+                if (_state.value.speed != it.speed) {
+                    _state.value = _state.value.copy(speed = it.speed)
+                    applySpeed()
+                }
+            }
+        }
     }
 
     private var exo: ExoPlayer? = null
@@ -231,7 +241,7 @@ class TubePlayer(
             }
             player.stop()
             player.clearMediaItems()
-            _state.value = State(video = video, loading = true)
+            _state.value = State(video = video, loading = true, speed = prefs.speed)
             startTicking()
             val start = startAtMs ?: resumePoint(video)
             load(player, video, start)
@@ -277,6 +287,7 @@ class TubePlayer(
             if (exo !== player || _state.value.video?.id != video.id) return@launch
             _state.value = _state.value.copy(height = minOf(stream.width, stream.height).takeIf { it > 0 } ?: stream.height)
             player.setMediaSource(mediaSource(video, stream), if (stream.hlsUrl != null) C.TIME_UNSET else startAtMs)
+            applySpeed()
             player.prepare()
             player.playWhenReady = true
             // The rest of the video goes to the disk cache while it plays (all of it on Wi-Fi, a stretch on mobile data).
@@ -366,8 +377,33 @@ class TubePlayer(
         main.launch { exo?.takeIf { !it.isPlaying }?.play() }
     }
 
+    /** Held down on the video: 2× until the finger lifts (the chosen speed stays as it is). */
+    private var boosted = false
+
+    /** The speed for this and the next videos (saved). */
     fun setSpeed(speed: Float) {
-        main.launch { exo?.setPlaybackSpeed(speed) }
+        main.launch {
+            _state.value = _state.value.copy(speed = speed)
+            prefs = prefs.copy(speed = speed)
+            applySpeed()
+            runCatching { settings.setSpeed(speed) }
+        }
+    }
+
+    /** While held: 2× (or the chosen speed, if faster); let go, back to the chosen one. */
+    fun boost(on: Boolean) {
+        main.launch {
+            boosted = on
+            applySpeed()
+        }
+    }
+
+    private fun applySpeed() {
+        val player = exo ?: return
+        // A live goes at its own pace.
+        val chosen = if (_state.value.video?.live == true) 1f else _state.value.speed
+        val speed = if (boosted) maxOf(2f, chosen) else chosen
+        if (player.playbackParameters.speed != speed) player.setPlaybackSpeed(speed)
     }
 
     fun seekTo(positionMs: Long) {
@@ -428,7 +464,8 @@ class TubePlayer(
             val player = exo
             exo = null
             _player.value = null
-            _state.value = State()
+            boosted = false
+            _state.value = State(speed = prefs.speed)
             prefetcher.stop()
             nowPlaying = null
             player?.release()

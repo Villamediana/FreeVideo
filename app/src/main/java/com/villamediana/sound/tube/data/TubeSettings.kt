@@ -3,6 +3,7 @@ package com.villamediana.sound.tube.data
 import android.content.Context
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +26,8 @@ data class TubePrefs(
     val pictureInPicture: Boolean = true,
     /** "Do que você gosta?" was answered or skipped. */
     val interestsAsked: Boolean = false,
+    /** The speed chosen on the video (1 = normal); every video after it plays at it too. */
+    val speed: Float = 1f,
 )
 
 class TubeSettings(private val context: Context) {
@@ -35,6 +38,7 @@ class TubeSettings(private val context: Context) {
         val background = booleanPreferencesKey("background")
         val interestsAsked = booleanPreferencesKey("interests_asked")
         val pip = booleanPreferencesKey("pip")
+        val speed = floatPreferencesKey("speed")
     }
 
     val prefs: Flow<TubePrefs> = context.tubeStore.data.map { p ->
@@ -45,6 +49,7 @@ class TubeSettings(private val context: Context) {
             keepPlayingInBackground = p[K.background] ?: true,
             pictureInPicture = p[K.pip] ?: true,
             interestsAsked = p[K.interestsAsked] ?: false,
+            speed = p[K.speed]?.takeIf { it in SPEEDS } ?: 1f,
         )
     }
 
@@ -56,8 +61,10 @@ class TubeSettings(private val context: Context) {
     suspend fun setKeepPlayingInBackground(v: Boolean) = context.tubeStore.edit { it[K.background] = v }
     suspend fun setPictureInPicture(v: Boolean) = context.tubeStore.edit { it[K.pip] = v }
     suspend fun setInterestsAsked(v: Boolean) = context.tubeStore.edit { it[K.interestsAsked] = v }
+    suspend fun setSpeed(v: Float) = context.tubeStore.edit { it[K.speed] = v }
 
     companion object {
         val QUALITIES = listOf(360, 480, 720, 1080)
+        val SPEEDS = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
     }
 }

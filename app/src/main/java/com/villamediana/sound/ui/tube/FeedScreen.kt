@@ -149,7 +149,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
             if (state.chip == null) {
                 if (continueList.isNotEmpty()) {
                     item(key = "continue") {
-                        Column(Modifier.padding(top = 6.dp, bottom = 8.dp).animateItem()) {
+                        Column(Modifier.padding(top = 6.dp, bottom = 8.dp).animateItem(fadeInSpec = tween(260), fadeOutSpec = null)) {
                             TubeSectionHeader(title = stringResource(R.string.tube_continue), modifier = Modifier.padding(top = 0.dp))
                             LazyRow(contentPadding = PaddingValues(horizontal = Dimens.Gutter), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 items(continueList, key = { it.videoId }) { w ->
@@ -167,7 +167,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                     }
                     if (state.entries.isNotEmpty()) item(key = "foryou") { Spacer(Modifier.height(8.dp)) }
                 }
-                feedItems(state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen)
+                feedItems("v:", state.entries, watched, nav, onMenu = { menu = it }, onSeen = vm::seen)
                 when {
                     state.loading && state.entries.isEmpty() -> items(4, key = { "sk$it" }) { SkeletonCard() }
                     state.error && state.entries.isEmpty() -> item(key = "error") {
@@ -182,7 +182,7 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
                     state.entries.isNotEmpty() -> items(2, key = { "more$it" }) { SkeletonCard() }
                 }
             } else {
-                feedItems(state.chipEntries, watched, nav, onMenu = { menu = it }, onSeen = {})
+                feedItems("c:" + state.chip?.label + ":", state.chipEntries, watched, nav, onMenu = { menu = it }, onSeen = {})
                 when {
                     state.chipLoading && state.chipEntries.isEmpty() -> items(4, key = { "csk$it" }) { SkeletonCard() }
                     state.chipError && state.chipEntries.isEmpty() -> item(key = "chipError") {
@@ -204,14 +204,19 @@ fun FeedScreen(vm: FeedViewModel = viewModel()) {
     }
 }
 
+/**
+ * The cards of one list (the home's, or a topic's: [keyPrefix] keeps them apart). Cards that leave go
+ * at once — fading them out drew the old topic over the new one for a moment.
+ */
 private fun androidx.compose.foundation.lazy.LazyListScope.feedItems(
+    keyPrefix: String,
     entries: List<FeedEngine.Entry>,
     watched: Map<String, com.villamediana.sound.tube.data.WatchEntry>,
     nav: TubeNavigator,
     onMenu: (VideoMenuTarget) -> Unit,
     onSeen: (FeedEngine.Entry) -> Unit,
 ) {
-    items(entries, key = { "v:" + it.video.id }) { e ->
+    items(entries, key = { keyPrefix + it.video.id }) { e ->
         // On screen for a moment: the feed notes it was shown.
         LaunchedEffect(e.video.id) {
             delay(900)
@@ -223,7 +228,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.feedItems(
             onMore = { onMenu(VideoMenuTarget(e.video, reason = e.reason)) },
             progress = watched[e.video.id]?.progress ?: 0f,
             onChannel = e.video.channelUrl?.let { url -> { nav.openChannel(url, e.video.channelName, e.video.channelAvatar) } },
-            modifier = Modifier.animateItem(),
+            modifier = Modifier.animateItem(fadeInSpec = tween(260), fadeOutSpec = null),
         )
     }
 }
