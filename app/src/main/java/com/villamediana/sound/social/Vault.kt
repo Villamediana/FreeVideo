@@ -19,7 +19,7 @@ import javax.crypto.spec.SecretKeySpec
  * of its own (the "data key", random, kept on each phone of the profile); the relay also keeps that
  * key, but wrapped by a key only the recovery code makes. So the relay holds bytes it cannot read,
  * and a new phone with the code opens them. AES-256-GCM; the code's key by PBKDF2-SHA256 salted
- * with the profile id. Pure (javax.crypto), tested on the JVM.
+ * with the profile id ("freevideo-vault:<id>": FreeVideo's own, not FreeSong's). Pure (javax.crypto), tested on the JVM.
  */
 object VaultCrypto {
     private const val VERSION: Byte = 1
@@ -34,7 +34,7 @@ object VaultCrypto {
 
     /** The key the recovery code makes for this profile. */
     fun codeKey(code: String, userId: String): ByteArray {
-        val spec = PBEKeySpec(normalizeCode(code).toCharArray(), "freesong-vault:$userId".toByteArray(), ITERATIONS, 256)
+        val spec = PBEKeySpec(normalizeCode(code).toCharArray(), "freevideo-vault:$userId".toByteArray(), ITERATIONS, 256)
         return SecretKeyFactory.getInstance("PBKDF2WithHmacSHA256").generateSecret(spec).encoded
     }
 

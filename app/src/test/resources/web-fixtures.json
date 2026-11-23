@@ -1,0 +1,76 @@
+{
+  "code": "7K2Q-M9XD-4TFA-H3RB",
+  "user": "uparity01",
+  "rawKey": "+6lsG326VTyCulrz+t0XHg3NZDiInuB2ixEKiTFN06Q=",
+  "vault": "AdSufxGEcK6O0AfaITCFyatuvNA27cjW0JPlYwsHD038oQR8lfMFBFvLJYnMYMYgfh2V1un5TvfT+S2rSuHzxLwzTEYSZNlb0PZBVN7zvWgsQZi5MZnT16B/ardd1HoZhPQFixb7svo36YKV5egq0zVs4Q+OhgF5N4R3qkzWMo+TtYRKx7gFR1NJgBFdyiwjwKTdU+cZU3+EYE8ene6GsnpAsvZXsRXZP4lPES08QOiapEoFJ5Ldr52bUp+RDuHZ+CkMpebDRNmiyyXVIamM0P7Uwej3bc/CmEGjJJ+Qq9KIpqpxmBIVIg1X+eBbI1hsUT74Vj4JvysWK0nU26oNLFbGlhPFynhw7MHys1XdU++yZfVA+Ii44XGh5BNkMZP8ApJse0z2f/24YV5dVv8FcK55W7kRRammdaw60p7jNeGJ",
+  "wrappedKey": "AX0xRtByK9EesuuO4wuHdAqenJxRPgUEcagK5akWQCKJGdU+gTeJ3rzH+iQGDw+pRVH7Zeuupsn0RtYjWA==",
+  "content": {
+    "h": [
+      {
+        "i": "dQw4w9WgXcQ",
+        "t": "Pão caseiro ção",
+        "cn": "Amo Pão",
+        "cu": "https://www.youtube.com/channel/UCrpLBn22arVETOO5alUbW7A",
+        "d": 600000,
+        "p": 120000,
+        "w": 300000,
+        "n": 2,
+        "f": 1700000000000,
+        "l": 1700000001000
+      }
+    ],
+    "s": [
+      {
+        "u": "https://www.youtube.com/channel/UCrpLBn22arVETOO5alUbW7A",
+        "n": "Amo Pão",
+        "at": 5
+      }
+    ],
+    "sv": [
+      {
+        "li": "later",
+        "i": "abcdefghijk",
+        "t": "Depois",
+        "cn": "Canal",
+        "at": 7
+      }
+    ],
+    "x": [
+      {
+        "k": "v:zzzzzzzzzzz",
+        "t": "Não",
+        "at": 8
+      }
+    ],
+    "q": [
+      {
+        "q": "pão",
+        "n": 3,
+        "at": 9
+      }
+    ],
+    "in": [
+      {
+        "t": "culinária",
+        "at": 10
+      }
+    ]
+  },
+  "link": {
+    "url": "https://freevideo.simplyonegoal.com/web/link#I1rEsBrKBfFfwzss_JU_FQ.BCZQMcmpStROznv9DnE8mNafuXWZNO8GSB2AEx4xUZd9L-r0mEoK21OkZbG3LRkambhF7HnvEZdbAGGitjQup1U.EcIMwvTGfJndPeKvsOH7HA",
+    "id": "I1rEsBrKBfFfwzss_JU_FQ",
+    "pub": "BCZQMcmpStROznv9DnE8mNafuXWZNO8GSB2AEx4xUZd9L-r0mEoK21OkZbG3LRkambhF7HnvEZdbAGGitjQup1U",
+    "secret": "EcIMwvTGfJndPeKvsOH7HA",
+    "privateJwk": {
+      "key_ops": [
+        "deriveBits"
+      ],
+      "ext": true,
+      "kty": "EC",
+      "x": "JlAxyalK1E7Oe_0OcTyY1p-5dZk07wZIHYATHjFRl30",
+      "y": "L-r0mEoK21OkZbG3LRkambhF7HnvEZdbAGGitjQup1U",
+      "crv": "P-256",
+      "d": "zHwwIjXas4kZ7VfIeT7DDlc4QqwUvR78y352IvKWtJg"
+    }
+  }
+}

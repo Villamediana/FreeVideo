@@ -73,6 +73,16 @@
                 <data android:host="youtube.com" />
                 <data android:host="youtu.be" />
             </intent-filter>
+            <!-- O QR code de um computador (o FreeVideo na web), lido pela câmera do celular. Verificado:
+                 o relay do FreeVideo responde /.well-known/assetlinks.json com a chave do app. -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" />
+                <data android:host="freevideo.simplyonegoal.com" />
+                <data android:path="/web/link" />
+            </intent-filter>
         </activity>
 
         <!-- Tocar em segundo plano (opcional, Ajustes): sessão de mídia do vídeo com controles na notificação -->

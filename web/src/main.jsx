@@ -1,0 +1,327 @@
+// O FreeVideo no computador: num celular, a página de baixar o app; num computador ainda não ligado, o
+// QR code; ligado, o cofre do perfil aberto aqui (a chave nunca sai deste navegador), junto com o
+// celular nos dois sentidos, o player e a página.
+import { createRoot } from 'react-dom/client';
+import * as lock from './core/crypto.js';
+import { Api } from './core/api.js';
+import { Store, MemoryStore } from './core/store.js';
+import { VaultSync } from './core/sync.js';
+import { Watcher } from './core/watch.js';
+import { channelKey, edit, LATER, LIKED } from './core/vault.js';
+import { strings, pickLang } from './ui/i18n.js';
+import { Ctx, Dialog, Logo, useApp } from './ui/kit.jsx';
+import { App, parse } from './ui/app.jsx';
+import { LinkPage, PhonePage, isPhone } from './ui/link.jsx';
+import { ACCENTS } from './ui/profile.jsx';
+
+const root = createRoot(document.getElementById('root'));
+const PREFS = 'freevideo-prefs';
+let prefs = {};
+
+let installOffer = null;
+addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  installOffer = e;
+});
+
+function savedPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(PREFS) ?? '{}') ?? {};
+  } catch {
+    return {};
+  }
+}
+
+/** O papel: claro por padrão (como o app), tinta azul de destaque. */
+function look(p) {
+  const dark = p.mode === 'dark' || (p.mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const html = document.documentElement;
+  html.dataset.mode = dark ? 'dark' : 'light';
+  const [, light, darkC] = ACCENTS.find(([id]) => id === p.accent) ?? ACCENTS[0];
+  html.style.setProperty('--accent', dark ? darkC : light);
+  html.style.setProperty('--on-accent', dark ? '#1C1A17' : '#FFFFFF');
+  html.lang = p.lang === 'en' ? 'en' : p.lang === 'es' ? 'es' : 'pt-BR';
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#1C1A17' : '#FAF7F1');
+}
+
+function OtherTab({ t, onUse }) {
+  return <div className="center"><div className="phone-page"><Logo size={72} /><h1>{t('otherTab')}</h1><button type="button" className="pill on big" onClick={onUse}>{t('useHere')}</button></div></div>;
+}
+
+function Unlinked({ t }) {
+  return <div className="center"><div className="phone-page"><Logo size={72} /><h1>{t('unlinked')}</h1><button type="button" className="pill on big" onClick={() => location.reload()}>{t('linkNew')}</button></div></div>;
+}
+
+const ACTIVE = 'freevideo-web-active';
+let releaseTab = () => {};
+
+function exclusive(run, t) {
+  if (!navigator.locks?.request) return run();
+  const hold = (opts) => navigator.locks.request(ACTIVE, opts, async (held) => {
+    if (!held) return 'busy';
+    await run();
+    return new Promise((r) => { releaseTab = r; });
+  });
+  const watch = (p) => p.then(
+    (r) => { if (r === 'busy') root.render(<OtherTab t={t} onUse={() => watch(hold({ steal: true }))} />); },
+    () => location.reload(),
+  );
+  watch(hold({ ifAvailable: true }));
+  return undefined;
+}
+
+const STARTERS = {
+  pt: ['em alta hoje', 'música', 'futebol', 'humor', 'games', 'tecnologia', 'receitas', 'ciência'],
+  es: ['tendencias hoy', 'música', 'fútbol', 'humor', 'videojuegos', 'tecnología', 'recetas', 'ciencia'],
+  en: ['trending today', 'music', 'football', 'comedy', 'gaming', 'technology', 'recipes', 'science'],
+};
+
+async function start() {
+  prefs = savedPrefs();
+  look(prefs);
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => look(prefs));
+  const lang = pickLang(prefs.lang);
+  const t = strings(lang);
+  if (isPhone()) {
+    root.render(<PhonePage t={t} />);
+    return;
+  }
+  const store = await new Store().open();
+  const [key, token, proof, me] = [await store.get('key'), await store.get('token'), await store.get('proof'), await store.get('me')];
+  if (!key || !token || !proof || !me) {
+    if (key || token || proof || me) await store.wipe().then(() => store.open());
+    const api = new Api({ lang });
+    root.render(<LinkPage api={api} t={t} onLinked={async (got) => {
+      const where = got.shared ? new MemoryStore() : store;
+      let k = got.key;
+      if (!k) {
+        const linkedApi = new Api({ token: got.token, proof: got.proof, lang });
+        const v = await linkedApi.vault();
+        if (v) {
+          k = await lock.unwrapWithCode(v.key, got.code, got.me.id);
+          if (!k) {
+            await linkedApi.unlink().catch(() => {});
+            throw new Error('locked');
+          }
+        } else {
+          const fresh = await lock.newDataKey(got.code, got.me.id);
+          k = fresh.key;
+          await linkedApi.putVault(0, await lock.sealVault({}, k), fresh.wrapped);
+        }
+      }
+      await where.set('key', k);
+      await where.set('proof', got.proof);
+      await where.set('token', got.token);
+      await where.set('me', got.me);
+      await where.set('owner', got.owner ?? '');
+      if (got.shared) return linked({ store: where, shared: true, t, lang });
+      location.reload();
+      return undefined;
+    }} />);
+    return;
+  }
+  store.close();
+  exclusive(async () => {
+    const s2 = await new Store().open();
+    if (!(await s2.get('key')) || !(await s2.get('token'))) return location.reload();
+    return linked({ store: s2, shared: false, t, lang });
+  }, t);
+}
+
+async function linked({ store, shared, t, lang }) {
+  const [key, token, proof] = [await store.get('key'), await store.get('token'), await store.get('proof')];
+  let me = await store.get('me');
+  const owner = await store.get('owner');
+  let unlinked = false;
+  let tabs = null;
+  const unlink = async (tellServer) => {
+    if (unlinked) return;
+    unlinked = true;
+    sync.stop();
+    watcher.close();
+    if (tellServer) await api.unlink().catch(() => {});
+    await store.wipe();
+    try { tabs?.postMessage('unlinked'); } catch { /* fechado */ }
+    document.getElementById('yt-dock')?.replaceChildren();
+    root.render(<Unlinked t={t} />);
+    releaseTab();
+  };
+  if (!shared) {
+    try {
+      tabs = new BroadcastChannel('freevideo-web');
+      tabs.onmessage = (e) => { if (e.data === 'unlinked') unlink(false); };
+    } catch { /* navegador antigo */ }
+  }
+  const api = new Api({ token, proof, lang, onUnlinked: () => unlink(false) });
+  const sync = new VaultSync({ api, key, store });
+  await sync.load();
+
+  const setPrefs = (p, { quiet = false } = {}) => {
+    const langChanged = p.lang && p.lang !== lang;
+    prefs = p;
+    try { localStorage.setItem(PREFS, JSON.stringify(p)); } catch { /* janela anônima */ }
+    if (quiet) return;
+    look(p);
+    if (langChanged) location.reload();
+    else rerender();
+  };
+
+  const ui = { menu: () => {}, toast: () => {}, dialog: () => {}, stageChanged: () => {} };
+  const toast = (text, action) => ui.toast(text, action);
+  let stage = null;
+  let next = null;
+  let lastOpened = null; // o vídeo do cartão clicado (a página dele mostra título e canal na hora)
+
+  const watcher = new Watcher({
+    host: document.getElementById('yt-dock'),
+    onRecord: (video, positionMs, durationMs, addMs, newVisit) => sync.change((v) => edit.watch(v, video, positionMs, durationMs, addMs, newVisit, Date.now()), { quiet: true }),
+    // Acabou: o próximo do "a seguir" (como o app, com reprodução automática).
+    onEnded: () => { if (prefs.autoplay !== false) next?.(); },
+    onToast: (what) => toast(t(what)),
+  });
+
+  const isSaved = (list, id) => sync.data.sv.some((x) => x.li === list && x.i === id);
+  const nf = new Intl.NumberFormat(lang, { notation: 'compact', maximumFractionDigits: 1 });
+
+  const app = {
+    t, lang, api, sync, watcher, shared, owner,
+    dockRef: { current: document.getElementById('yt-dock') },
+    me: () => me,
+    prefs: () => prefs,
+    setPrefs,
+    bindUi: (u) => Object.assign(ui, u),
+    toast,
+    starterTopics: () => STARTERS[lang] ?? STARTERS.pt,
+    compact: (n) => nf.format(n),
+    openMenu: (e, items) => { e?.stopPropagation?.(); ui.menu(e, items); },
+    stage: () => stage,
+    setStage: (ref) => { stage = ref; ui.stageChanged(); },
+    setNext: (fn) => { next = fn; },
+    /** Abre um vídeo: a página dele ([navigate]) e o player (de onde parou, se for o caso). */
+    openVideo: (v, { navigate = true, startMs = 0 } = {}) => {
+      if (navigate) {
+        lastOpened = v;
+        location.hash = `/watch/${v.id}`;
+        return;
+      }
+      watcher.open(v, startMs);
+    },
+    closeVideo: () => watcher.close(),
+    peek: (id) => (lastOpened?.id === id ? lastOpened : null),
+    isSaved,
+    toggleSaved: (list, v) => {
+      const was = isSaved(list, v.id);
+      sync.change((x) => edit.toggleSaved(x, list, v, Date.now()));
+      toast(t(list === LIKED ? (was ? 'unliked' : 'liked') : (was ? 'removedLater' : 'addedLater')));
+    },
+    isSubscribed: (url, name) => {
+      const k = channelKey(url, name);
+      return sync.data.s.some((s) => channelKey(s.u, s.n) === k);
+    },
+    toggleSub: (c) => {
+      const k = channelKey(c.url, c.name);
+      const was = sync.data.s.some((s) => channelKey(s.u, s.n) === k);
+      sync.change((x) => edit.toggleSub(x, { url: c.url, name: c.name, avatarUrl: c.avatarUrl ?? null }, Date.now()));
+      toast(t(was ? 'unsubscribed' : 'subscribedTo', c.name));
+    },
+    /** A página de um canal seguido foi aberta: a foto e o nome dele ficam em dia (o app faz o mesmo). */
+    refreshSub: (c) => {
+      const k = channelKey(c.url, c.name);
+      const s = sync.data.s.find((x) => channelKey(x.u, x.n) === k);
+      if (!s || !c.avatarUrl || (s.a === c.avatarUrl && s.n)) return;
+      sync.change((x) => ({ ...x, s: x.s.map((y) => (channelKey(y.u, y.n) === k ? { ...y, a: c.avatarUrl, n: y.n || c.name } : y)) }));
+    },
+    dismissVideo: (v) => {
+      sync.change((x) => edit.dismissVideo(x, v, Date.now()));
+      toast(t('dismissed'), { label: t('undo'), run: () => sync.change((x) => edit.undoDismissal(x, `v:${v.id}`)) });
+    },
+    dismissChannel: (url, name) => {
+      if (!url) return;
+      sync.change((x) => edit.dismissChannel(x, url, name, Date.now()));
+      toast(t('channelDismissed'), { label: t('undo'), run: () => sync.change((x) => edit.undoDismissal(x, `c:${url}`)) });
+    },
+    forgetWatch: (id) => sync.change((x) => edit.forget(x, id)),
+    confirmClearHistory: () => ui.dialog(<ClearHistory onClose={() => ui.dialog(null)} />),
+    clearHistory: () => sync.change((x) => edit.clearHistory(x)),
+    noteSearch: (q) => sync.change((x) => edit.search(x, q, Date.now())),
+    forgetSearch: (q) => sync.change((x) => edit.forgetSearch(x, q)),
+    setInterests: (topics) => sync.change((x) => edit.setInterests(x, topics, Date.now())),
+    copy: async (text) => {
+      try {
+        await navigator.clipboard.writeText(text);
+        toast(t('linkCopied'));
+      } catch { toast(text); }
+    },
+    /** O menu de um vídeo (clique direito ou "…"). */
+    videoMenu: (v, { extra } = {}) => [
+      { label: isSaved(LATER, v.id) ? t('removeLater') : t('watchLater'), icon: 'later', onClick: () => app.toggleSaved(LATER, v) },
+      { label: isSaved(LIKED, v.id) ? t('unlike') : t('like'), icon: 'thumbUp', onClick: () => app.toggleSaved(LIKED, v) },
+      { label: t('copyLink'), icon: 'share', onClick: () => app.copy(`https://www.youtube.com/watch?v=${v.id}`) },
+      ...(extra ? ['-', extra] : []),
+      '-',
+      { label: t('notInterested'), icon: 'block', onClick: () => app.dismissVideo(v) },
+      ...(v.channelUrl ? [{ label: t('dontRecommendChannel'), icon: 'block', onClick: () => app.dismissChannel(v.channelUrl, v.channelName) }] : []),
+    ],
+    rename: async (name) => {
+      const r = await api.rename(name);
+      me = r.me;
+      await store.set('me', me);
+      rerender();
+    },
+    unlink: () => unlink(true),
+    canInstall: () => !!installOffer && !shared,
+    install: async () => {
+      if (!installOffer) return;
+      await installOffer.prompt();
+      installOffer = null;
+    },
+  };
+
+  function rerender() {
+    root.render(<Ctx.Provider value={{ ...app }}><App /></Ctx.Provider>);
+  }
+
+  addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') { watcher.note(); sync.flush(); } });
+  addEventListener('pagehide', () => { watcher.note(); sync.save().catch(() => {}); });
+  addEventListener('online', () => sync.push());
+
+  if (shared) {
+    let farewell = null;
+    const sign = async () => { farewell = await api.sign('DELETE', '/v1/link').catch(() => farewell); };
+    await sign();
+    setInterval(sign, 60_000);
+    addEventListener('pagehide', () => {
+      if (unlinked || !farewell) return;
+      fetch('/v1/link', { method: 'DELETE', keepalive: true, credentials: 'omit', headers: { Authorization: `Bearer ${token}`, 'X-FreeVideo-Sig': farewell } }).catch(() => {});
+    });
+    api.markShared().catch(() => {});
+  }
+
+  const refreshMe = () => api.me().then(async (r) => { me = r.me; await store.set('me', me); rerender(); }, () => {});
+  refreshMe();
+  setInterval(refreshMe, 10 * 60_000);
+
+  // Um link de vídeo (#/v/<id>, ou ?v=<id>): abre a página dele.
+  const r = parse(location.hash);
+  if (r.name === 'v' && /^[A-Za-z0-9_-]{11}$/.test(r.id)) history.replaceState(null, '', `#/watch/${r.id}`);
+  rerender();
+  sync.run();
+}
+
+function ClearHistory({ onClose }) {
+  const app = useApp();
+  return (
+    <Dialog title={app.t('clearHistory')} onClose={onClose}>
+      {(close) => (
+        <div className="form">
+          <div className="form-actions"><button type="button" className="pill ghost" onClick={close}>{app.t('cancel')}</button><button type="button" className="pill danger on" onClick={() => { app.clearHistory(); close(); }}>{app.t('clear')}</button></div>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+start().catch((e) => {
+  console.error(e);
+  root.render(<div className="center"><p className="faint">{String(e?.message ?? e)}</p></div>);
+});

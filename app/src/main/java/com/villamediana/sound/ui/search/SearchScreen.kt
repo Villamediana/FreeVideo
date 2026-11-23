@@ -192,6 +192,7 @@ fun SearchScreen() {
         when (val item = if (pending != null) LinkInbox.consume() else null) {
             is Inbound.Link -> vm.resolveLink(item.text)
             is Inbound.Query -> vm.submit(item.text)
+            is Inbound.Computer -> Unit
             null -> Unit
         }
     }

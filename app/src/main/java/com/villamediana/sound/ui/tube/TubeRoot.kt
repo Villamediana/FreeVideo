@@ -137,12 +137,19 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
     // YouTube in the language on screen (it changes with the app's language).
     val locales = androidx.compose.ui.platform.LocalConfiguration.current.locales
     LaunchedEffect(locales) { com.villamediana.sound.tube.ContentLanguage.apply(context) }
+    // A computer's QR code read by the phone's camera: "Ligar este computador?" over whatever is open.
+    var computerCode by remember { mutableStateOf<com.villamediana.sound.social.ComputerLink.Code?>(null) }
+    computerCode?.let { LinkComputerDialog(it, onDismiss = { computerCode = null }) }
     LaunchedEffect(inbound) {
         val item = inbound ?: return@LaunchedEffect
         incoming.value = null
         val text = when (item) {
             is Inbound.Link -> item.text
             is Inbound.Query -> item.text
+            is Inbound.Computer -> {
+                computerCode = item.code
+                return@LaunchedEffect
+            }
         }
         when (val link = tube.source.resolve(text)) {
             is TubeLink.Video -> nav.openVideo(VideoItem(link.id, "", ""), startMs = link.startMs.takeIf { it > 0 } ?: -1)
@@ -245,6 +252,7 @@ fun TubeRoot(incoming: MutableStateFlow<Inbound?>) {
                 composable<VideoListRoute> { Page { VideoListScreen(it.toRoute()) } }
                 composable<SubscriptionListRoute> { Page { SubscriptionListScreen() } }
                 composable<TubeSettingsRoute> { Page { TubeSettingsScreen() } }
+                composable<TubeProfileRoute> { Page { TubeProfileScreen() } }
             }
 
             Column(

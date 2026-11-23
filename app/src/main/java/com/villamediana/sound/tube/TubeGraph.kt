@@ -28,4 +28,8 @@ class TubeGraph(private val context: Context, private val http: OkHttpClient, pr
     }
     val feedCache: FeedCache by lazy { FeedCache(File(context.filesDir, "feed.json")) }
     val player: TubePlayer by lazy { TubePlayer(context, scope, source, library, settings) }
+    /** The profile, its vault (with the other phones and computers of the profile) and the computers linked. */
+    val account: com.villamediana.sound.tube.account.TubeAccountHub by lazy {
+        com.villamediana.sound.tube.account.TubeAccountHub(context, scope, http, db, library)
+    }
 }

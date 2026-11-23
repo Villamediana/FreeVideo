@@ -141,6 +141,14 @@ quando ela existe ou são reconhecidos no próprio aparelho quando não existe.
 
 </div>
 
+## Perfil e computador
+
+O FreeVideo cria um perfil sozinho (um @nome e um **código de recuperação**): com o código, seu
+histórico, inscrições e vídeos salvos vão pra outro celular. E tudo isso abre no computador em
+**https://freevideo.simplyonegoal.com/web**: na Biblioteca, toque na sua foto › **Computador** e leia o
+QR code da página. O que muda num lado aparece no outro na hora, cifrado (o servidor não lê). Detalhes:
+[web/README.md](web/README.md).
+
 ## Como instalar
 
 1. Baixe a APK mais recente em [**Releases**](../../releases/latest).

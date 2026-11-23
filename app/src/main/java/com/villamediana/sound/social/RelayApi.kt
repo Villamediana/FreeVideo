@@ -129,6 +129,42 @@ class RelayApi(
         RevBox.serializer(),
     ).rev
 
+    /**
+     * The vault only if it changed since [rev], waiting up to [waitS] seconds for a change (another
+     * phone or a computer writing): null when it didn't.
+     */
+    internal fun vaultChange(rev: Long, waitS: Int): VaultBox? {
+        val box = try {
+            call("GET", "/v1/me/vault?after=$rev&wait=$waitS", null, VaultChangeBox.serializer())
+        } catch (e: RelayException) {
+            if (e.status == 404) return null else throw e
+        }
+        return if (box.same || box.data == null || box.key == null) null else VaultBox(box.rev, box.key, box.data, box.updatedAt)
+    }
+
+    // ---------------------------------------------------------------- computers (the web)
+
+    /** This phone read a computer's QR code: the vault's key goes to it, encrypted ([wrapped]). The computer's name. */
+    fun approveLink(linkId: String, wrapped: ComputerLink.Wrapped, owner: String): String = call(
+        "POST",
+        "/v1/link/$linkId/approve",
+        json(buildJsonObject {
+            put("wrapped", buildJsonObject {
+                put("pub", wrapped.pub)
+                put("iv", wrapped.iv)
+                put("ct", wrapped.ct)
+            })
+            put("owner", owner)
+        }),
+        ApprovedBox.serializer(),
+    ).name
+
+    fun computers(): List<Computer> = call("GET", "/v1/me/computers", null, ComputersBox.serializer()).computers
+
+    fun unlinkComputer(id: String) {
+        call("DELETE", "/v1/me/computers/$id", null, OkBox.serializer())
+    }
+
     // ---------------------------------------------------------------- people and friends
 
     fun users(query: String, offset: Int, limit: Int = 30): UsersPage {
@@ -286,6 +322,9 @@ class RelayApi(
     @Serializable internal data class UserBox(val user: Profile)
     @Serializable internal data class CodeBox(val recoveryCode: String)
     @Serializable internal data class OkBox(val ok: Boolean = true)
+    @Serializable internal data class VaultChangeBox(val rev: Long, val same: Boolean = false, val key: String? = null, val data: String? = null, val updatedAt: Long = 0)
+    @Serializable internal data class ApprovedBox(val id: String = "", val name: String = "")
+    @Serializable internal data class ComputersBox(val computers: List<Computer> = emptyList())
     @Serializable internal data class VaultBox(val rev: Long, val key: String, val data: String, val updatedAt: Long = 0)
     @Serializable internal data class RevBox(val rev: Long)
     @Serializable internal data class StatusBox(val status: String)
