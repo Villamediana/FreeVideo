@@ -126,11 +126,22 @@ internal class WatchSheet(private val scope: CoroutineScope) {
         scope.launch { barShift.snapTo(x) }
     }
 
-    /** Let go far enough: the bar slides off that side and the video closes. */
+    /**
+     * Let go far enough: the bar slides off that side and the video closes. Off the screen it leaves the
+     * sheet first and only then the player closes: putting the bar back in its place while the video was
+     * still there showed it at its old spot for a moment (until the player's news reached the screen).
+     */
     fun shiftAway(right: Boolean, onClose: () -> Unit) {
-        scope.launch {
+        job?.cancel()
+        job = scope.launch {
             barShift.animateTo(if (right) travelWidth else -travelWidth, tween(160))
+            route = null
+            origin = null
+            dragged = null
             onClose()
+            // Nothing on screen anymore: back to rest for the next video.
+            expansion.snapTo(0f)
+            appear.snapTo(1f)
             barShift.snapTo(0f)
         }
     }
