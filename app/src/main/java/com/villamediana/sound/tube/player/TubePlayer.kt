@@ -413,6 +413,20 @@ class TubePlayer(
         }
     }
 
+    /** The sharpest video wanted (saved): the video goes on from the same second at it. */
+    fun setQuality(height: Int) {
+        main.launch {
+            prefs = prefs.copy(maxHeight = height)
+            runCatching { settings.setMaxHeight(height) }
+            val player = exo ?: return@launch
+            val video = _state.value.video ?: return@launch
+            if (video.live) return@launch
+            val at = player.currentPosition.coerceAtLeast(0)
+            streams.invalidate(video.id)
+            load(player, video, at)
+        }
+    }
+
     /** Tries again after an error, from where it stopped. */
     fun retry() {
         main.launch {

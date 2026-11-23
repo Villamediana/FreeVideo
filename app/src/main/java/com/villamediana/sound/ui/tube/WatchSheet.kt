@@ -41,6 +41,9 @@ internal class WatchSheet(private val scope: CoroutineScope) {
     /** How far (px) the video travels between the page and the bar (set by the layout; drags are measured against it). */
     var travel by mutableFloatStateOf(1f)
 
+    /** A finger is moving the page from the bar (the bar stays until it lets go). */
+    var barHeld by mutableStateOf(false)
+
     /** The bar pushed sideways (px), on its way to closing or back. */
     val barShift = Animatable(0f)
 

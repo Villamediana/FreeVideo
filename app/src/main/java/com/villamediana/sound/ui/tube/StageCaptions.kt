@@ -71,7 +71,7 @@ internal fun StageCaption(cues: List<Cue>, progress: VideoProgress, big: Boolean
 @Composable
 internal fun captionLabel(choice: CaptionChoice): String {
     if (choice.translateTo != null) return stringResource(R.string.tube_captions_translated, languageName(choice.translateTo))
-    val name = choice.track.name.ifBlank { languageName(choice.track.language) }
+    val name = choice.track.name.ifBlank { languageName(choice.track.language) }.replaceFirstChar { it.titlecase() }
     return if (choice.track.auto) stringResource(R.string.tube_captions_auto, name) else name
 }
 
@@ -79,70 +79,4 @@ internal fun captionLabel(choice: CaptionChoice): String {
 internal fun languageName(tag: String): String {
     val locale = Locale.forLanguageTag(tag)
     return locale.getDisplayLanguage(locale).replaceFirstChar { it.titlecase(locale) }.ifBlank { tag }
-}
-
-/**
- * The captions to pick, in a row of pills over the dimmed video: off, each track the video has,
- * and — when none is in the person's language — YouTube's translation into it.
- */
-@Composable
-internal fun StageCaptionPicker(
-    visible: Boolean,
-    tracks: List<CaptionTrack>,
-    language: String,
-    selected: CaptionChoice?,
-    onPick: (CaptionChoice?) -> Unit,
-    onClose: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    AnimatedVisibility(visible, enter = fadeIn(tween(160)), exit = fadeOut(tween(160)), modifier = modifier) {
-        Box(
-            Modifier
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
-            contentAlignment = Alignment.Center,
-        ) {
-            val choices = remember(tracks, language) {
-                val own = tracks.map { CaptionChoice(it) }
-                val translated = Captions.choose(tracks, language)?.takeIf { it.translateTo != null }
-                own + listOfNotNull(translated)
-            }
-            AnimatedVisibility(visible, enter = scaleIn(tween(220), initialScale = 0.9f), exit = scaleOut(tween(160), targetScale = 0.95f)) {
-                Row(
-                    Modifier
-                        .padding(horizontal = 12.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .horizontalScroll(rememberScrollState())
-                        .selectableGroup()
-                        .padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    CaptionPill(stringResource(R.string.tube_captions_off), selected == null) { onPick(null) }
-                    choices.forEach { c ->
-                        CaptionPill(captionLabel(c), selected?.track?.url == c.track.url && selected.translateTo == c.translateTo) { onPick(c) }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun CaptionPill(text: String, selected: Boolean, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (selected) Color.White else Color.Transparent, tween(180), label = "ccBg")
-    val fg by animateColorAsState(if (selected) Color.Black else Color.White, tween(180), label = "ccFg")
-    Box(
-        Modifier
-            .height(40.dp)
-            .clip(CircleShape)
-            .background(bg)
-            .selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 14.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(text, style = MaterialTheme.typography.labelLarge, color = fg, maxLines = 1)
-    }
 }

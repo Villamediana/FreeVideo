@@ -9,6 +9,10 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.swipeDown
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.onRoot
 import androidx.test.core.app.ApplicationProvider
 import com.villamediana.sound.R
 import com.villamediana.sound.SoundApplication
@@ -94,10 +98,22 @@ class TubeScreensTest {
         waitFor("Canal de teste")
         rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription(str(R.string.tube_minimize))).fetchSemanticsNodes().isNotEmpty() || rule.onAllNodes(hasText(str(R.string.video_error_title))).fetchSemanticsNodes().isNotEmpty() }
 
+        fun barShows() = rule.onAllNodes(hasContentDescription(str(R.string.tube_close))).fetchSemanticsNodes().isNotEmpty()
+        fun pageShows() = rule.onAllNodes(hasContentDescription(str(R.string.tube_minimize))).fetchSemanticsNodes().isNotEmpty()
+
+        // Dragging the video itself down — from the middle, over its buttons — shrinks the page into the bar.
+        rule.onRoot().performTouchInput { swipeDown(startY = height * 0.16f, endY = height * 0.8f, durationMillis = 400) }
+        rule.waitUntil(10_000) { barShows() && !pageShows() }
+        // Pushing the bar up (over its buttons too) opens the page again.
+        rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performTouchInput {
+            swipeUp(startY = centerY, endY = centerY - 900f, durationMillis = 350)
+        }
+        rule.waitUntil(10_000) { pageShows() && !barShows() }
+
         // Minimize: the page shrinks into the bar over the tabs (title, play and close), the tabs come back.
         rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).fetchSemanticsNodes().firstOrNull()?.let {
             rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).onFirst().performClick()
-            rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription(str(R.string.tube_close))).fetchSemanticsNodes().isNotEmpty() }
+            rule.waitUntil(10_000) { barShows() }
             rule.onAllNodesWithContentDescription(str(R.string.tube_tab_home)).onFirst().assertExists()
             val playOrPause = rule.onAllNodes(hasContentDescription(str(R.string.video_play))).fetchSemanticsNodes().size +
                 rule.onAllNodes(hasContentDescription(str(R.string.video_pause))).fetchSemanticsNodes().size

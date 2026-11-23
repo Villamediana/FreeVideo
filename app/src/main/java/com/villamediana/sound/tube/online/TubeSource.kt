@@ -161,7 +161,8 @@ class TubeSource(private val http: OkHttpClient) {
                 durationMs = info.duration.coerceAtLeast(0) * 1000,
                 views = info.viewCount,
                 uploadedAt = runCatching { info.uploadDate?.instant?.toEpochMilli() }.getOrNull(),
-                uploadedText = info.textualUploadDate?.ifBlank { null },
+                // Some pages give a machine date ("2026-11-16T07:48:43-08:00"): then the app writes its own.
+                uploadedText = info.textualUploadDate?.ifBlank { null }?.takeUnless(::machineDate),
                 live = info.streamType == StreamType.LIVE_STREAM || info.streamType == StreamType.AUDIO_LIVE_STREAM,
                 short = false,
                 verified = runCatching { info.isUploaderVerified }.getOrDefault(false),
@@ -533,7 +534,7 @@ class TubeSource(private val http: OkHttpClient) {
             views = item.viewCount,
             uploadedAt = runCatching { item.uploadDate?.instant?.toEpochMilli() }.getOrNull(),
             // RSS entries carry a machine date ("2026-11-18T14:30:12+00:00"): not words to show.
-            uploadedText = item.textualUploadDate?.ifBlank { null }?.takeUnless { it.length >= 10 && it[4] == '-' && it[0].isDigit() },
+            uploadedText = item.textualUploadDate?.ifBlank { null }?.takeUnless(::machineDate),
             live = live,
             short = runCatching { item.isShortFormContent }.getOrDefault(false) || item.url.contains("/shorts/"),
             verified = runCatching { item.isUploaderVerified }.getOrDefault(false),
@@ -569,6 +570,10 @@ class TubeSource(private val http: OkHttpClient) {
         const val INFO_TTL_MS = 20 * 60_000L
 
         fun watchUrl(id: String) = "https://www.youtube.com/watch?v=$id"
+
+        /** "2026-11-18T14:30:12+00:00": a date for machines, not words to show. */
+        fun machineDate(text: String): Boolean = text.length >= 10 && text[0].isDigit() && text[4] == '-' && text[7] == '-'
+
 
         fun idOf(url: String?): String? {
             if (url.isNullOrBlank()) return null

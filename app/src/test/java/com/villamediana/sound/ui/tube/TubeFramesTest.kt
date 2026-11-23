@@ -146,13 +146,13 @@ class TubeFramesTest {
         rule.onAllNodesWithText(title).onFirst().performClick()
         settle(7_000)
         shot("09-watch")
-        // The speed, from its pill over the video (when the video plays here).
-        rule.onAllNodesWithContentDescription(str(R.string.tube_speed), substring = true).fetchSemanticsNodes().firstOrNull()?.let {
-            rule.onAllNodesWithContentDescription(str(R.string.tube_speed), substring = true).onFirst().performClick()
+        // The video's settings, from the gear over the video.
+        rule.onAllNodesWithContentDescription(str(R.string.tube_video_settings)).fetchSemanticsNodes().firstOrNull()?.let {
+            rule.onAllNodesWithContentDescription(str(R.string.tube_video_settings)).onFirst().performClick()
+            settle(1_200)
+            shot("09a-settings")
+            rule.onAllNodesWithContentDescription(str(R.string.tube_close)).onFirst().performClick()
             settle(800)
-            shot("09a-speed")
-            rule.onRoot().performClick()
-            settle(600)
         }
         rule.onRoot().performTouchInput { swipeUp(startY = height * 0.9f, endY = height * 0.55f, durationMillis = 300) }
         settle(1_000)
@@ -172,9 +172,17 @@ class TubeFramesTest {
                 settle(800)
             }
         }
-        rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).fetchSemanticsNodes().firstOrNull() ?: rule.onRoot().performClick()
-        settle(600)
-        rule.onAllNodesWithContentDescription(str(R.string.tube_minimize)).onFirst().performClick()
+        // The video dragged down, held on the way, then let go: the page slides into the bar.
+        rule.onRoot().performTouchInput {
+            down(androidx.compose.ui.geometry.Offset(width * 0.5f, height * 0.16f))
+            moveBy(androidx.compose.ui.geometry.Offset(0f, height * 0.12f))
+        }
+        settle(400)
+        shot("09e-drag-a")
+        rule.onRoot().performTouchInput { moveBy(androidx.compose.ui.geometry.Offset(0f, height * 0.3f)) }
+        settle(400)
+        shot("09f-drag-b")
+        rule.onRoot().performTouchInput { up() }
         settle(1_500)
         shot("10-mini-player")
     }

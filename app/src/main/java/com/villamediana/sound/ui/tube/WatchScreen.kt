@@ -74,6 +74,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Replay10
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.VideoLibrary
 import androidx.compose.material.icons.rounded.VideocamOff
@@ -122,6 +123,8 @@ import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.keepScreenOn
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.positionInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -222,20 +225,17 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
     val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     val fullscreen = toPage && (landscape || mode.tall)
     var panel by remember { mutableStateOf(false) }
-    var speedMenu by remember { mutableStateOf(false) }
-    var captionMenu by remember { mutableStateOf(false) }
+    var settingsOpen by remember { mutableStateOf(false) }
     val captions by vm.captions.collectAsState()
+    val prefs by remember { tube.settings.prefs }.collectAsState(initial = com.villamediana.sound.tube.data.TubePrefs())
     val appLanguage = remember(context) { com.villamediana.sound.tube.ContentLanguage.of(context).language }
     LaunchedEffect(fullscreen) { if (!fullscreen) panel = false }
     LaunchedEffect(toPage) {
-        if (!toPage) {
-            speedMenu = false
-            captionMenu = false
-        }
+        if (!toPage) settingsOpen = false
     }
 
     // Back: shrinks the page into the bar, following the gesture (the page gets smaller as the finger goes).
-    PredictiveBackHandler(enabled = toPage && !fullscreen && !speedMenu && !captionMenu) { progress ->
+    PredictiveBackHandler(enabled = toPage && !fullscreen && !settingsOpen) { progress ->
         try {
             progress.collect { e -> sheet.dragTo(1f - 0.25f * e.progress) }
             sheet.collapse()
@@ -244,11 +244,7 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
             throw e
         }
     }
-    BackHandler(enabled = fullscreen && !speedMenu && !captionMenu) { if (panel) panel = false else mode.exit() }
-    BackHandler(enabled = speedMenu || captionMenu) {
-        speedMenu = false
-        captionMenu = false
-    }
+    BackHandler(enabled = fullscreen && !settingsOpen) { if (panel) panel = false else mode.exit() }
 
     // The status bar over the black top of the page: light icons while the page is there.
     val darkTop by remember(sheet) { derivedStateOf { sheet.expansion.value > 0.5f } }
@@ -275,7 +271,7 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
     var rewoundFromPlaying by remember { mutableStateOf(false) }
     var beforeTap by remember { mutableStateOf<OverlayState?>(null) }
     val scope = rememberCoroutineScope()
-    val pinned = scrubbing || loading || error != null || panel || speedMenu || captionMenu
+    val pinned = scrubbing || loading || error != null || panel || settingsOpen
 
     // Full screen: the picture's zoom (1 = fits, [Zoom.fill] = fills the screen, more = a closer look).
     val zoom = remember { Zoom() }
@@ -461,27 +457,14 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
                 overlay = overlay.touch(now())
             }
 
-            override fun showSpeed(show: Boolean) {
-                speedMenu = show
+            override fun openSettings() {
+                settingsOpen = true
                 overlay = overlay.touch(now())
             }
 
-            override fun pickSpeed(speed: Float) {
+            override fun toggleCaptions() {
                 haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                player.setSpeed(speed)
-                speedMenu = false
-                overlay = overlay.touch(now())
-            }
-
-            override fun showCaptions(show: Boolean) {
-                captionMenu = show
-                overlay = overlay.touch(now())
-            }
-
-            override fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?) {
-                haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
-                vm.pickCaptions(choice)
-                captionMenu = false
+                vm.toggleCaptions()
                 overlay = overlay.touch(now())
             }
 
@@ -665,10 +648,7 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
             drag = { drag.value },
             threshold = threshold,
             panel = panel,
-            speedMenu = speedMenu,
             captions = captions,
-            captionMenu = captionMenu,
-            captionLanguage = appLanguage,
             related = details.related,
             storyboard = storyboard,
             zoom = zoom,
@@ -697,7 +677,7 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
         )
 
         // 4. The bar: title, play and close next to the small video; it takes the touches over the video too.
-        val showBar by remember(sheet) { derivedStateOf { sheet.expansion.value < 0.6f && !(sheet.origin != null && sheet.appear.value < 1f) } }
+        val showBar by remember(sheet) { derivedStateOf { (sheet.expansion.value < 0.6f || sheet.barHeld) && !(sheet.origin != null && sheet.appear.value < 1f) } }
         if (showBar && !fullscreen) {
             MiniBar(
                 state = pState,
@@ -705,16 +685,35 @@ internal fun WatchScreen(route: WatchRoute, sheet: WatchSheet, miniBottom: () ->
                 progress = progress,
                 atBar = atBar,
                 sheet = sheet,
-                miniWidth = with(density) { (geo.miniH * 16f / 9f).toDp() },
+                videoWidth = { geo.stage().width },
+                landed = { (1f - geo.f() / 0.15f).coerceIn(0f, 1f) },
                 modifier = Modifier
                     .at(geo::miniBar)
-                    .graphicsLayer { alpha = (1f - geo.f() / 0.45f).coerceIn(0f, 1f) },
+                    .graphicsLayer { alpha = (1f - geo.f() / 0.6f).coerceIn(0f, 1f) },
             )
         }
     }
+    WatchSettings(settingsOpen, onClose = { settingsOpen = false }, pState, captions, appLanguage, prefs.maxHeight, vm, player)
 }
 
 private fun now(): Long = SystemClock.uptimeMillis()
+
+/** The video's settings sheet (speed, captions, quality), opened by the gear or the speed pill. */
+@Composable
+private fun WatchSettings(open: Boolean, onClose: () -> Unit, state: TubePlayer.State, captions: WatchViewModel.CaptionsUi, language: String, quality: Int, vm: WatchViewModel, player: TubePlayer) {
+    if (!open) return
+    VideoSettingsSheet(
+        speed = state.speed,
+        onSpeed = { player.setSpeed(it) },
+        captions = captions,
+        language = language,
+        onCaptions = { choice, off -> vm.pickCaptions(choice, off) },
+        quality = quality,
+        live = state.video?.live == true,
+        onQuality = { if (it != quality) player.setQuality(it) },
+        onClose = onClose,
+    )
+}
 
 /** A fling faster than this (px/s) acts even short of the threshold. */
 private const val FLING_PX_S = 1600f
@@ -756,27 +755,48 @@ private class WatchGeo(private val sheet: WatchSheet, private val miniBottom: ()
     fun stage(): Rect {
         val o = sheet.origin
         if (o != null && growing()) return lerpRect(o, pageStage(), sheet.appear.value)
-        return lerpRect(miniStage(), pageStage(), f()).translate(shift())
+        val page = pageStage()
+        val mini = miniStage()
+        val t = (1f - f()).coerceIn(0f, 1f)
+        // The top follows the finger; the size goes a little ahead of it (small well before it lands).
+        val top = page.top + (mini.top - page.top) * t
+        val k = 1f - (1f - t) * (1f - t)
+        val width = page.width + (mini.width - page.width) * k
+        val height = page.height + (mini.height - page.height) * k
+        return Rect(0f, top, width, top + height).translate(shift())
     }
 
+    /** The page's ground: a sheet from just above the video down to the bottom, sliding into the bar. */
     fun panel(): Rect {
         if (growing()) return Rect(0f, 0f, w, h)
-        val bar = Rect(0f, barTop(), w, barTop() + barH)
-        return lerpRect(bar, Rect(0f, 0f, w, h), f()).translate(shift())
+        val t = (1f - f()).coerceIn(0f, 1f)
+        val videoTop = stage().top
+        val top = videoTop - (statusTop + (hair - statusTop) * t)
+        val bottom = h + (barTop() + barH - h) * t
+        // Pushed sideways from the bar, the bar's ground goes with it.
+        return Rect(0f, top, w, bottom).translate(shift())
     }
 
     fun pageAlpha(): Float = if (growing()) (sheet.appear.value * 1.6f).coerceIn(0f, 1f) else (1f - abs(sheet.barShift.value) / w.coerceAtLeast(1f)).coerceIn(0f, 1f)
 
-    /** 0..1: how much of the details shows. */
-    fun detailsShown(): Float = if (growing()) ((sheet.appear.value - 0.35f) / 0.65f).coerceIn(0f, 1f) else ((f() - 0.45f) / 0.55f).coerceIn(0f, 1f)
+    /** 0..1: how much of the details shows (they go early on the way to the bar). */
+    fun detailsShown(): Float = if (growing()) ((sheet.appear.value - 0.35f) / 0.65f).coerceIn(0f, 1f) else ((f() - 0.55f) / 0.45f).coerceIn(0f, 1f)
 
+    /** Right under the video, moving with it (their size stays: nothing is laid out again while it moves). */
     fun details(): Rect {
-        val top = pageStage().bottom
+        val height = h - pageStage().bottom
+        if (growing()) return Rect(0f, pageStage().bottom, w, h)
         // In the bar the details wait below the screen (out of reach of the fingers).
-        return if (!growing() && f() < 0.02f) Rect(0f, h + 1f, w, h + 1f + (h - top)) else Rect(0f, top, w, h)
+        if (f() < 0.02f) return Rect(0f, h + 1f, w, h + 1f + height)
+        val top = stage().bottom
+        return Rect(0f, top, w, top + height)
     }
 
-    fun miniBar(): Rect = Rect(0f, barTop(), w, barTop() + barH).translate(shift())
+    /** Beside the video, riding with it on its way down (at the end, the bar's own place). */
+    fun miniBar(): Rect {
+        val top = stage().top - hair
+        return Rect(0f, top, w, top + barH).translate(shift())
+    }
 }
 
 private fun lerpRect(a: Rect, b: Rect, t: Float): Rect {
@@ -944,10 +964,10 @@ internal interface WatchActions {
     fun playNext()
     fun cancelNext()
     fun showPanel(show: Boolean)
-    fun showSpeed(show: Boolean)
-    fun pickSpeed(speed: Float)
-    fun showCaptions(show: Boolean)
-    fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?)
+    /** The gear: the video's settings (speed, captions, quality). */
+    fun openSettings()
+    /** CC: captions on (the automatic ones, or those picked for this video) / off. */
+    fun toggleCaptions()
     /** Zoomed in past filling the screen: one finger moves the picture. */
     fun zoomedIn(): Boolean
     fun transform(zoomChange: Float, pan: Offset)
@@ -987,10 +1007,7 @@ private fun Stage(
     drag: () -> Float,
     threshold: Float,
     panel: Boolean,
-    speedMenu: Boolean,
     captions: WatchViewModel.CaptionsUi,
-    captionMenu: Boolean,
-    captionLanguage: String,
     related: List<VideoItem>,
     storyboard: Storyboard?,
     zoom: Zoom,
@@ -1005,7 +1022,10 @@ private fun Stage(
 ) {
     val error = state.error
     val toggleLabel = stringResource(if (controlsVisible) R.string.video_hide_controls else R.string.video_show_controls)
-    val interactive = atPage && error == null && state.countdown == null
+    // Gestures are decided when the finger lands (on the page, or full screen) and then followed to the
+    // end, even as the video moves and shrinks under the finger.
+    val gesturesOn by rememberUpdatedState(atPage || fullscreen)
+    val where = remember { RootSpot() }
     val live = state.video?.live == true
     var dragFraction by remember { mutableStateOf<Float?>(null) }
     val full by rememberUpdatedState(fullscreen)
@@ -1017,9 +1037,9 @@ private fun Stage(
                     true
                 }
             }
-            .pointerInput(interactive, player != null) {
-                if (!interactive) return@pointerInput
-                stageGestures(canSeek = player != null, full = { full }, actions = actions)
+            .onGloballyPositioned { where.offset = it.positionInRoot() }
+            .pointerInput(player != null) {
+                stageGestures(canSeek = player != null, full = { full }, enabled = { gesturesOn }, where = where, actions = actions)
             },
     ) {
         Box(Modifier.matchParentSize().graphicsLayer(layer).background(Color.Black).clipToBounds()) {
@@ -1078,14 +1098,8 @@ private fun Stage(
                                 Text(title, style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 1, overflow = TextOverflow.Ellipsis)
                                 if (channel.isNotBlank()) Text(channel, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.72f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
-                            if (captions.tracks.isNotEmpty()) {
-                                Spacer(Modifier.width(8.dp))
-                                CaptionsButton(captions.showing) { actions.showCaptions(true) }
-                            }
-                            if (!live && error == null) {
-                                Spacer(Modifier.width(8.dp))
-                                StageSpeedPill(state.speed, { actions.showSpeed(true) })
-                            }
+                            Spacer(Modifier.width(8.dp))
+                            StageTopActions(state.speed, live, captions, actions)
                         }
                     } else {
                         StageButton(
@@ -1095,25 +1109,7 @@ private fun Stage(
                             Modifier.align(Alignment.TopStart).padding(4.dp),
                             iconSize = 30.dp,
                         )
-                        Row(
-                            Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            if (state.height > 0) {
-                                Text(
-                                    stringResource(R.string.tube_quality_now, state.height),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = Color.White,
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(Color.White.copy(alpha = 0.16f))
-                                        .padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
-                            }
-                            if (captions.tracks.isNotEmpty()) CaptionsButton(captions.showing) { actions.showCaptions(true) }
-                            if (!live && error == null) StageSpeedPill(state.speed, { actions.showSpeed(true) })
-                        }
+                        StageTopActions(state.speed, live, captions, actions, Modifier.align(Alignment.TopEnd).padding(top = 4.dp, end = 4.dp))
                     }
                     // Center: back 10 s, play/pause, forward 10 s.
                     if (error == null && player != null) {
@@ -1263,22 +1259,6 @@ private fun Stage(
             }
             // The edges in full screen: brightness on the left, volume on the right.
             level?.let { l -> LevelMeter(l, Modifier.align(if (l.brightness) Alignment.CenterStart else Alignment.CenterEnd).padding(horizontal = 40.dp)) }
-            StageCaptionPicker(
-                visible = captionMenu,
-                tracks = captions.tracks,
-                language = captionLanguage,
-                selected = captions.choice?.takeIf { captions.showing },
-                onPick = actions::pickCaptions,
-                onClose = { actions.showCaptions(false) },
-                modifier = Modifier.matchParentSize(),
-            )
-            StageSpeedPicker(
-                visible = speedMenu,
-                speed = state.speed,
-                onPick = actions::pickSpeed,
-                onClose = { actions.showSpeed(false) },
-                modifier = Modifier.matchParentSize(),
-            )
             if (atPage) DragHint(drag, threshold, fullscreen, panel, Modifier.align(Alignment.Center))
             if (atPage || fullscreen) StageSpinner(loading, Modifier.align(Alignment.Center))
             if (atPage) state.countdown?.let { seconds -> UpNextOverlay(seconds, state.upNext?.title.orEmpty(), state.upNext?.thumbnailUrl, actions, fullscreen) }
@@ -1336,16 +1316,27 @@ private fun SeekBubble(storyboard: Storyboard?, positionMs: Long, totalMs: Long,
     }
 }
 
-/** Captions on / off over the video: the CC mark, filled while they show. */
+/**
+ * Top right over the video: the speed while it isn't 1×, CC (on / off in the app's language — the
+ * video has captions) and the gear for the video's settings.
+ */
 @Composable
-private fun CaptionsButton(on: Boolean, onClick: () -> Unit) {
-    StageButton(
-        if (on) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionOff,
-        stringResource(R.string.tube_captions),
-        onClick,
-        size = 38.dp,
-        iconSize = 24.dp,
-    )
+private fun StageTopActions(speed: Float, live: Boolean, captions: WatchViewModel.CaptionsUi, actions: WatchActions, modifier: Modifier = Modifier) {
+    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+        if (!live && speed != 1f) {
+            StageSpeedPill(speed, actions::openSettings, Modifier.padding(end = 4.dp))
+        }
+        if (captions.tracks.isNotEmpty()) {
+            StageButton(
+                if (captions.showing) Icons.Rounded.ClosedCaption else Icons.Rounded.ClosedCaptionOff,
+                stringResource(R.string.tube_captions),
+                actions::toggleCaptions,
+                size = 44.dp,
+                iconSize = 24.dp,
+            )
+        }
+        StageButton(Icons.Rounded.Settings, stringResource(R.string.tube_video_settings), actions::openSettings, size = 44.dp, iconSize = 23.dp)
+    }
 }
 
 /** A dark glass chip over the video: an icon and a word or two. */
@@ -1544,7 +1535,10 @@ private fun MiniBar(
     progress: VideoProgress,
     atBar: Boolean,
     sheet: WatchSheet,
-    miniWidth: androidx.compose.ui.unit.Dp,
+    /** How wide the video beside it is right now (px): the title starts where the video ends. */
+    videoWidth: () -> Float,
+    /** 0..1: how close it is to being the bar (its lines show only then: mid-way they'd cross the video). */
+    landed: () -> Float,
     modifier: Modifier = Modifier,
 ) {
     val video = state.video ?: return
@@ -1552,18 +1546,20 @@ private fun MiniBar(
     val track = sc.Hairline
     val playLabel = stringResource(if (state.playing) R.string.video_pause else R.string.video_play)
     val openLabel = stringResource(R.string.tube_open_video)
+    val where = remember { RootSpot() }
     Column(
         modifier
-            .then(if (atBar) Modifier.barGestures(sheet, onClose = player::close) else Modifier)
+            .onGloballyPositioned { where.offset = it.positionInRoot() }
+            .barGestures(sheet, where, onClose = player::close)
             .semantics { onClick(label = openLabel) { sheet.expand(); true } },
     ) {
-        Box(Modifier.fillMaxWidth().height(1.dp).background(sc.Hairline))
+        Box(Modifier.fillMaxWidth().height(1.dp).graphicsLayer { alpha = landed() }.background(sc.Hairline))
         Row(
             Modifier.fillMaxWidth().height(MINI_HEIGHT),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Over the small video: a play mark while it's paused.
-            Box(Modifier.width(miniWidth).fillMaxHeight(), contentAlignment = Alignment.Center) {
+            Box(Modifier.videoGap(videoWidth).fillMaxHeight(), contentAlignment = Alignment.Center) {
                 if (!state.playing && state.error == null) {
                     Box(Modifier.size(40.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.4f)), contentAlignment = Alignment.Center) {
                         Icon(Icons.Rounded.PlayArrow, null, tint = Color.White, modifier = Modifier.size(28.dp))
@@ -1587,7 +1583,7 @@ private fun MiniBar(
             Spacer(Modifier.width(4.dp))
         }
         Box(
-            Modifier.fillMaxWidth().height(2.dp).drawBehind {
+            Modifier.fillMaxWidth().height(2.dp).graphicsLayer { alpha = landed() }.drawBehind {
                 drawRect(track)
                 val total = progress.durationMs
                 if (total > 0) drawRect(accent, size = size.copy(width = size.width * (progress.positionMs.toFloat() / total).coerceIn(0f, 1f)))
@@ -1596,17 +1592,27 @@ private fun MiniBar(
     }
 }
 
+/** As wide as the video beside it is at this moment (read while laying out: it follows the drag). */
+private fun Modifier.videoGap(width: () -> Float): Modifier = layout { measurable, constraints ->
+    val px = width().roundToInt().coerceIn(0, constraints.maxWidth)
+    val placeable = measurable.measure(constraints.copy(minWidth = px, maxWidth = px))
+    layout(px, placeable.height) { placeable.place(0, 0) }
+}
+
 /**
  * The bar under the finger: a tap opens the page; pushed up the page grows with the finger (and opens
  * past a little of the way or with a flick); pushed to a side the bar slides away and closes past a
  * third of its width (or with a flick). Short of that it all springs back. The buttons keep their taps.
  */
-private fun Modifier.barGestures(sheet: WatchSheet, onClose: () -> Unit): Modifier = pointerInput(sheet) {
+private fun Modifier.barGestures(sheet: WatchSheet, where: RootSpot, onClose: () -> Unit): Modifier = pointerInput(sheet) {
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
+        // Only from the bar itself (not while it is still on its way down).
+        if (sheet.expansion.value > 0.05f) return@awaitEachGesture
+        val downAt = down.position + where.offset
         val slop = viewConfiguration.touchSlop
         val tracker = VelocityTracker()
-        tracker.addPosition(down.uptimeMillis, down.position)
+        tracker.addPosition(down.uptimeMillis, down.position + where.offset)
         var axis = 0 // 0 = not decided (a tap so far), 1 = sideways, 2 = up
         var d = Offset.Zero
         var tapped = true
@@ -1614,12 +1620,12 @@ private fun Modifier.barGestures(sheet: WatchSheet, onClose: () -> Unit): Modifi
             // Seen before the buttons (Initial pass): once it's a swipe, they see it consumed and don't click.
             val event = awaitPointerEvent(PointerEventPass.Initial)
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
-            tracker.addPosition(change.uptimeMillis, change.position)
+            tracker.addPosition(change.uptimeMillis, change.position + where.offset)
             if (!change.pressed) {
                 if (axis != 0) change.consume()
                 break
             }
-            d = change.position - down.position
+            d = change.position + where.offset - downAt
             if (axis == 0) {
                 axis = when {
                     abs(d.x) > slop && abs(d.x) > abs(d.y) -> 1
@@ -1627,6 +1633,8 @@ private fun Modifier.barGestures(sheet: WatchSheet, onClose: () -> Unit): Modifi
                     else -> 0
                 }
                 if (abs(d.x) > slop || abs(d.y) > slop) tapped = false
+                // The bar stays on screen (and holds the gesture) while the finger moves the page.
+                if (axis != 0) sheet.barHeld = true
             }
             when (axis) {
                 1 -> {
@@ -1640,6 +1648,7 @@ private fun Modifier.barGestures(sheet: WatchSheet, onClose: () -> Unit): Modifi
             }
         }
         val v = tracker.calculateVelocity()
+        sheet.barHeld = false
         when (axis) {
             0 -> if (tapped && !down.isConsumed) {
                 // A tap on the bar (not on its buttons, which took theirs): the page.
@@ -1690,13 +1699,19 @@ private fun rememberFlags(player: Player?): Flags {
  * also: two fingers zoom (and move the zoomed picture), a sideways slide seeks, and a vertical slide
  * on the left / right third sets the brightness / the volume.
  */
-private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -> Boolean, actions: WatchActions) {
+private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -> Boolean, enabled: () -> Boolean, where: RootSpot, actions: WatchActions) {
     awaitEachGesture {
-        val down = awaitFirstDown()
+        // Also when it lands on a button over the video (play, ±10 s…): a drag still moves the video;
+        // the button keeps its tap (and a tap there isn't also a tap on the video).
+        val down = awaitFirstDown(requireUnconsumed = false)
+        if (!enabled()) return@awaitEachGesture
+        val onButton = down.isConsumed
+        // Where the finger is on the screen (the video itself moves while it is dragged).
+        val downAt = down.position + where.offset
         val slop = viewConfiguration.touchSlop
         val deadline = down.uptimeMillis + viewConfiguration.longPressTimeoutMillis
         val tracker = VelocityTracker()
-        tracker.addPosition(down.uptimeMillis, down.position)
+        tracker.addPosition(down.uptimeMillis, down.position + where.offset)
         val fullNow = full()
         val width = size.width.toFloat()
         val height = size.height.toFloat()
@@ -1710,11 +1725,12 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -
             val event = if (kind == Kind.NONE && !held) {
                 withTimeoutOrNull((deadline - last).coerceAtLeast(1)) { awaitPointerEvent() }
             } else {
-                awaitPointerEvent()
+                // Once it's a drag, seen before the buttons (Initial pass): they see it taken and don't click.
+                awaitPointerEvent(if (kind != Kind.NONE) PointerEventPass.Initial else PointerEventPass.Main)
             }
             if (event == null) {
                 held = true
-                if (canSeek) actions.hold(true, VideoSeek.sideOf(down.position.x, width))
+                if (canSeek && !onButton) actions.hold(true, VideoSeek.sideOf(down.position.x, width))
                 continue
             }
             // A second finger in full screen: zoom, until every finger is up.
@@ -1733,12 +1749,13 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -
             }
             val change = event.changes.firstOrNull { it.id == down.id } ?: break
             last = change.uptimeMillis
-            tracker.addPosition(change.uptimeMillis, change.position)
+            tracker.addPosition(change.uptimeMillis, change.position + where.offset)
             if (!change.pressed) {
                 upAt = change.position
+                if (kind != Kind.NONE) change.consume()
                 break
             }
-            val d = change.position - down.position
+            val d = change.position + where.offset - downAt
             if (kind == Kind.NONE && !held) {
                 kind = when {
                     fullNow && actions.zoomedIn() && (abs(d.x) > slop || abs(d.y) > slop) -> Kind.PAN
@@ -1778,11 +1795,12 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -
             }
         }
         when {
-            held -> if (canSeek) actions.hold(false)
+            held -> if (canSeek && !onButton) actions.hold(false)
             kind == Kind.VERTICAL -> actions.release(dy, tracker.calculateVelocity().y)
             kind == Kind.SEEK -> actions.seekDragEnd()
             kind == Kind.BRIGHTNESS || kind == Kind.VOLUME -> actions.levelEnd()
             kind == Kind.PAN -> actions.transformEnd()
+            onButton -> Unit
             upAt != null -> {
                 actions.stageTap(VideoSeek.sideOf(upAt.x, width), upAt)
                 if (canSeek) {
@@ -1798,6 +1816,11 @@ private suspend fun PointerInputScope.stageGestures(canSeek: Boolean, full: () -
 }
 
 private enum class Kind { NONE, VERTICAL, SEEK, BRIGHTNESS, VOLUME, PAN, PINCH }
+
+/** Where a moving node is on the screen (updated as it is laid out): drags are measured on the screen. */
+internal class RootSpot {
+    var offset: Offset = Offset.Zero
+}
 
 /** The share of the screen's width, at each side, that sets brightness / volume in full screen. */
 private const val EDGE = 0.3f

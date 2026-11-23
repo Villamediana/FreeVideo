@@ -238,4 +238,7 @@
     <string name="tube_transcript">Transcripción</string>
     <string name="tube_transcript_search">Buscar en la transcripción</string>
     <string name="tube_summary">Resumen</string>
+    <string name="tube_video_settings">Ajustes del video</string>
+    <string name="tube_quality">Calidad</string>
+    <string name="tube_captions_default">Automáticos · %s</string>
 </resources>

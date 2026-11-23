@@ -45,7 +45,7 @@ import java.text.DecimalFormat
 /** "1×", "1,5×" (the phone's own decimal mark). */
 internal fun speedLabel(speed: Float): String = DecimalFormat("0.##").format(speed.toDouble()) + "×"
 
-/** The speed over the video: a small glass pill ("1×", "1,5×"); the chosen speed lights it in white. */
+/** The speed over the video while it isn't 1×: a small white pill ("1,5×"); a tap opens the video's settings. */
 @Composable
 internal fun StageSpeedPill(speed: Float, onClick: () -> Unit, modifier: Modifier = Modifier) {
     val interaction = remember { MutableInteractionSource() }
@@ -66,58 +66,5 @@ internal fun StageSpeedPill(speed: Float, onClick: () -> Unit, modifier: Modifie
         contentAlignment = Alignment.Center,
     ) {
         Text(speedLabel(speed), style = MaterialTheme.typography.labelLarge, color = if (changed) Color.Black else Color.White)
-    }
-}
-
-/**
- * The speeds, in a row of pills over the dimmed video. A tap picks one (it stays for the next videos)
- * and closes; a tap anywhere else closes too.
- */
-@Composable
-internal fun StageSpeedPicker(visible: Boolean, speed: Float, onPick: (Float) -> Unit, onClose: () -> Unit, modifier: Modifier = Modifier) {
-    AnimatedVisibility(visible, enter = fadeIn(tween(160)), exit = fadeOut(tween(160)), modifier = modifier) {
-        Box(
-            Modifier
-                .background(Color.Black.copy(alpha = 0.55f))
-                .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClick = onClose),
-            contentAlignment = Alignment.Center,
-        ) {
-            AnimatedVisibility(visible, enter = scaleIn(tween(220), initialScale = 0.9f), exit = scaleOut(tween(160), targetScale = 0.95f)) {
-                Row(
-                    Modifier
-                        .widthIn(max = 520.dp)
-                        .padding(horizontal = 12.dp)
-                        .clip(RoundedCornerShape(26.dp))
-                        .background(Color.Black.copy(alpha = 0.6f))
-                        .horizontalScroll(rememberScrollState())
-                        .selectableGroup()
-                        .padding(6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TubeSettings.SPEEDS.forEach { s -> SpeedChoice(s, selected = s == speed) { onPick(s) } }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SpeedChoice(speed: Float, selected: Boolean, onClick: () -> Unit) {
-    val interaction = remember { MutableInteractionSource() }
-    val bg by animateColorAsState(if (selected) Color.White else Color.Transparent, tween(180), label = "speedBg")
-    val fg by animateColorAsState(if (selected) Color.Black else Color.White, tween(180), label = "speedFg")
-    Box(
-        Modifier
-            .height(40.dp)
-            .widthIn(min = 52.dp)
-            .pressScale(interaction, 0.9f)
-            .clip(CircleShape)
-            .background(bg)
-            .selectable(selected = selected, interactionSource = interaction, indication = null, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 10.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(speedLabel(speed), style = MaterialTheme.typography.labelLarge, color = fg)
     }
 }

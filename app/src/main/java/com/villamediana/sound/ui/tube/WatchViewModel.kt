@@ -58,39 +58,60 @@ class WatchViewModel(val initial: VideoItem) : ViewModel() {
         /** The track came back empty (YouTube gave nothing for it). */
         val none: Boolean = false,
         val showing: Boolean = false,
+        /** Picked by hand for this video (else: the automatic choice, in the app's language). */
+        val forced: Boolean = false,
     )
 
     private val _captions = MutableStateFlow(CaptionsUi())
     val captions: StateFlow<CaptionsUi> = _captions.asStateFlow()
 
-    /** The language captions are wanted in: the one chosen before, else the app's. */
-    private suspend fun captionLanguage(): String =
-        tube.settings.current().captionLanguage.ifBlank { appLanguage() }
-
     private fun appLanguage(): String =
         runCatching { com.villamediana.sound.tube.ContentLanguage.of(SoundApplication.instance).language }.getOrDefault("pt")
 
-    /** Captions were on for the last video: on for this one too, in the same language. */
+    /** The captions used unless picked by hand: the channel's or YouTube's in the app's language, else translated to it. */
+    private fun automatic(tracks: List<com.villamediana.sound.tube.online.CaptionTrack>) =
+        com.villamediana.sound.tube.online.Captions.choose(tracks, appLanguage())
+
+    /** Captions were on for the last video: on for this one too (the automatic ones). */
     private fun captionsArrived(details: com.villamediana.sound.tube.online.VideoDetails) {
         _captions.value = _captions.value.copy(tracks = details.captions)
         viewModelScope.launch {
             if (!tube.settings.current().captionsOn || details.captions.isEmpty()) return@launch
-            com.villamediana.sound.tube.online.Captions.choose(details.captions, captionLanguage())?.let { load(it, showing = true) }
+            automatic(details.captions)?.let { load(it, showing = true) }
         }
     }
 
-    /** Picked on the video: these captions (kept for the next videos), or none. */
-    fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?) {
-        viewModelScope.launch { tube.settings.setCaptions(choice != null, choice?.language) }
-        if (choice == null) {
-            _captions.value = _captions.value.copy(showing = false)
+    /** The CC button: on (the ones picked for this video, else the automatic ones) or off. Kept for the next videos. */
+    fun toggleCaptions() {
+        val c = _captions.value
+        if (c.showing) {
+            _captions.value = c.copy(showing = false)
+            viewModelScope.launch { tube.settings.setCaptions(false, null) }
             return
         }
-        if (choice == _captions.value.choice && _captions.value.cues.isNotEmpty()) {
-            _captions.value = _captions.value.copy(showing = true)
+        viewModelScope.launch { tube.settings.setCaptions(true, null) }
+        val choice = (if (c.forced) c.choice else null) ?: automatic(c.tracks) ?: return
+        if (choice == c.choice && c.cues.isNotEmpty()) {
+            _captions.value = c.copy(showing = true)
             return
         }
-        load(choice, showing = true)
+        load(choice, showing = true, forced = c.forced)
+    }
+
+    /** From the video's settings: these captions for this video ([choice]), the automatic ones (null), or off ([off]). */
+    fun pickCaptions(choice: com.villamediana.sound.tube.online.CaptionChoice?, off: Boolean = false) {
+        val c = _captions.value
+        if (off) {
+            if (c.showing) toggleCaptions()
+            return
+        }
+        viewModelScope.launch { tube.settings.setCaptions(true, null) }
+        val pick = choice ?: automatic(c.tracks) ?: return
+        if (pick == c.choice && c.cues.isNotEmpty()) {
+            _captions.value = c.copy(showing = true, forced = choice != null)
+            return
+        }
+        load(pick, showing = true, forced = choice != null)
     }
 
     /** The transcript or the summary opened: the lines, in the language wanted, if not here yet. */
@@ -98,8 +119,8 @@ class WatchViewModel(val initial: VideoItem) : ViewModel() {
         val c = _captions.value
         if (c.cues.isNotEmpty() || c.loading || c.tracks.isEmpty()) return
         viewModelScope.launch {
-            val choice = c.choice ?: com.villamediana.sound.tube.online.Captions.choose(c.tracks, captionLanguage()) ?: return@launch
-            load(choice, showing = c.showing)
+            val choice = c.choice ?: automatic(c.tracks) ?: return@launch
+            load(choice, showing = c.showing, forced = c.forced)
         }
     }
 
@@ -107,14 +128,14 @@ class WatchViewModel(val initial: VideoItem) : ViewModel() {
     fun retryCues() {
         val c = _captions.value
         val choice = c.choice ?: return ensureCues()
-        load(choice, showing = c.showing)
+        load(choice, showing = c.showing, forced = c.forced)
     }
 
     private var cuesJob: kotlinx.coroutines.Job? = null
 
-    private fun load(choice: com.villamediana.sound.tube.online.CaptionChoice, showing: Boolean) {
+    private fun load(choice: com.villamediana.sound.tube.online.CaptionChoice, showing: Boolean, forced: Boolean = false) {
         cuesJob?.cancel()
-        _captions.value = _captions.value.copy(choice = choice, cues = emptyList(), loading = true, error = false, none = false, showing = showing)
+        _captions.value = _captions.value.copy(choice = choice, cues = emptyList(), loading = true, error = false, none = false, showing = showing, forced = forced)
         cuesJob = viewModelScope.launch {
             try {
                 val cues = tube.source.cues(choice)

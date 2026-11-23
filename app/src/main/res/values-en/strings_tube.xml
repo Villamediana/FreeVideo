@@ -249,4 +249,7 @@
     <string name="tube_transcript">Transcript</string>
     <string name="tube_transcript_search">Search the transcript</string>
     <string name="tube_summary">Summary</string>
+    <string name="tube_video_settings">Video settings</string>
+    <string name="tube_quality">Quality</string>
+    <string name="tube_captions_default">Automatic · %s</string>
 </resources>
