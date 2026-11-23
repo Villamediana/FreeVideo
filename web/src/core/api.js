@@ -1,5 +1,5 @@
 // A página falando com o servidor (o mesmo endereço): o relay do FreeVideo (/v1/…: ligar o computador,
-// o perfil, o cofre cifrado) e a ponte com o YouTube (/web/api/…). Os pedidos ao relay
+// o perfil, o cofre cifrado) e a ponte com o YouTube (/api/…). Os pedidos ao relay
 // vão com o token deste computador e assinados pela chave que só este navegador tem.
 import { b64u } from './crypto.js';
 
@@ -124,7 +124,7 @@ export class Api {
   async tube(path, params = {}, signal) {
     const qs = new URLSearchParams({ ...params, lang: this.lang });
     for (const [k, v] of [...qs]) if (v === '' || v === 'undefined' || v === 'null') qs.delete(k);
-    return this.call('GET', `/web/api/${path}?${qs}`, { signed: false, signal });
+    return this.call('GET', `/api/${path}?${qs}`, { signed: false, signal });
   }
 
   search(q, type = '', signal) { return this.tube('search', { q, type }, signal); }

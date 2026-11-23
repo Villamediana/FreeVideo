@@ -4,7 +4,7 @@ Roda neste VPS (o mesmo do Novelo e do FreeSong), atrás do túnel da Cloudflare
 
 | | |
 |---|---|
-| Endereço público | `https://freevideo.simplyonegoal.com` (o túnel manda `/web` pro `web/server.js` e o resto pra cá) |
+| Endereço público | `https://freevideo.simplyonegoal.com` (o túnel manda `/v1`, `/avatars` e `/.well-known` pra cá e o resto pro `web/server.js`) |
 | Código | `/srv/freevideo/relay` (clone de `Villamediana/FreeVideo`, só leitura pro serviço) |
 | Porta | `127.0.0.1:3990` |
 | Node | 22.13+ (`node:sqlite`). Nenhuma dependência de npm |

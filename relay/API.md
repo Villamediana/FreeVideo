@@ -42,7 +42,7 @@ O relay não lê nenhum dos dois. Uma espera longa (`after` + `wait`) responde n
 Iguais aos do FreeSong (ver o API.md do relay do FreeSong, 1.8.0), com os nomes do FreeVideo:
 cabeçalhos `X-FreeVideo-Sig` (sobre `freevideo-web-v1\n<método>\n<caminho>\n<ms>\n<nonce>\n<sha256 do corpo>`)
 e `X-FreeVideo-Poll`, HKDF com info `freevideo-link-v1`, QR code
-`https://freevideo.simplyonegoal.com/web/link#<id>.<pública>.<segredo>` (App Link do app).
+`https://freevideo.simplyonegoal.com/link#<id>.<pública>.<segredo>` (App Link do app).
 
 `POST /v1/link`, `GET /v1/link/:id?wait=25`, `POST /v1/link/:id/approve` (celular), `POST /v1/link/recover`,
 `GET /v1/me/computers` e `DELETE /v1/me/computers/:id` (celular), `DELETE /v1/link` e `POST /v1/link/shared`

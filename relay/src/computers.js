@@ -1,4 +1,4 @@
-// Computadores ligados a um perfil (o FreeVideo na web, freevideo.simplyonegoal.com/web).
+// Computadores ligados a um perfil (o FreeVideo na web, freevideo.simplyonegoal.com).
 //
 // Um computador não é um celular: não ganha um token da tabela `tokens` (lá o 11º aparelho derruba o
 // mais antigo, e um celular que recebe 401 esquece o perfil). Ele fica aqui, com teto próprio, e cada

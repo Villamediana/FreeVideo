@@ -1,6 +1,6 @@
 # FreeVideo no computador (web)
 
-`https://freevideo.simplyonegoal.com/web` — o FreeVideo no navegador do computador: o feed (o mesmo
+`https://freevideo.simplyonegoal.com` — o FreeVideo no navegador do computador: o feed (o mesmo
 cérebro do app, `src/core/feed.js` = `FeedEngine` + `FeedLoader`), a página do vídeo, busca, canais,
 inscrições, biblioteca — com o histórico, as inscrições e os salvos do celular, nos dois sentidos. No
 celular a página só diz pra baixar o app.
@@ -19,7 +19,7 @@ celular a página só diz pra baixar o app.
 export PATH=/opt/node/bin:$PATH
 cd web && npm ci && npm run build && npm test
 node test/e2e.mjs /tmp/fotos      # Chromium, rede de verdade
-PORT=3992 npm start               # http://127.0.0.1:3992/web/
+PORT=3992 npm start               # http://127.0.0.1:3992/
 ```
 
 Paridade com o app: `TubeWebParityTest` abre o que `tools/fixtures.mjs` gerou e grava
@@ -28,4 +28,4 @@ Paridade com o app: `TubeWebParityTest` abre o que `tools/fixtures.mjs` gerou e 
 ## No servidor
 
 `/srv/freevideo/web`, unit `freevideo-web.service` em `127.0.0.1:3992`; o túnel manda
-`freevideo.simplyonegoal.com/web*` pra ela e o resto pro relay (`freevideo-relay.service`, 3990).
+pro relay (`freevideo-relay.service`, 3990) só `/v1`, `/avatars` e `/.well-known`, e o resto pra ela.

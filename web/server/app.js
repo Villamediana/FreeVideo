@@ -1,6 +1,7 @@
-// O servidor do FreeVideo no computador: as páginas (/web/…) e a ponte com o YouTube (/web/api/…).
-// Fica atrás do túnel da Cloudflare junto com o relay (freevideo.simplyonegoal.com): o túnel manda
-// /web pra cá e o resto pro relay. Não guarda nada de ninguém: o que a pessoa busca não
+// O servidor do FreeVideo no computador: as páginas (a raiz, /link e os arquivos) e a ponte com o
+// YouTube (/api/…). Fica atrás do túnel da Cloudflare junto com o relay (freevideo.simplyonegoal.com):
+// o túnel manda pro relay só o que é dele (/v1, /avatars, /.well-known…) e o resto pra cá.
+// Não guarda nada de ninguém: o que a pessoa busca não
 // vai pra log nenhum, e as respostas do YouTube ficam um tempo na memória pra servir a todos.
 import http from 'node:http';
 import { isIP } from 'node:net';
@@ -148,15 +149,12 @@ export function createWeb({ publicDir, tube = new Tube(), clock = Date.now, log 
     }
     const p = url.pathname;
     if (req.method !== 'GET' && req.method !== 'HEAD') return send(res, 405, { error: 'method' });
-    if (p === '/web/api/health') return send(res, 200, { ok: true });
-    if (!p.startsWith('/web/api/')) {
-      if (p === '/web' || p.startsWith('/web/')) return pages.serve(req, res, p);
-      return send(res, 404, { error: 'not_found' });
-    }
+    if (p === '/api/health') return send(res, 200, { ok: true });
+    if (!p.startsWith('/api/')) return pages.serve(req, res, p);
     try {
       if (!perIp.take(ipOf(req))) throw new HttpError(429, 'slow_down');
       const lang = LANG(url.searchParams.get('lang'));
-      const [, , , what, id] = p.split('/');
+      const [, , what, id] = p.split('/');
       let out;
       if (Object.hasOwn(api, what) && id === undefined) out = await api[what](url, lang);
       else if (Object.hasOwn(byId, what) && id !== undefined) {
@@ -168,7 +166,7 @@ export function createWeb({ publicDir, tube = new Tube(), clock = Date.now, log 
     } catch (e) {
       if (e instanceof HttpError) return send(res, e.status, { error: e.code }, e.status === 429 ? { 'Retry-After': '30' } : {});
       // Nunca a busca da pessoa no log: só o tipo de pedido.
-      log.error?.(`[web] ${p.split('/').slice(0, 4).join('/')}: ${e?.message ?? e}`);
+      log.error?.(`[web] ${p.split('/').slice(0, 3).join('/')}: ${e?.message ?? e}`);
       return send(res, 502, { error: 'upstream' });
     }
   }
