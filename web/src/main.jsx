@@ -32,6 +32,28 @@ function savedPrefs() {
   }
 }
 
+const ASKED_PERSIST = `${PREFS}-persist`;
+/**
+ * Pede ao navegador pra não apagar sozinho o que este computador guarda (as chaves e o cofre) quando o
+ * disco aperta: apagado, é QR code de novo. Chrome e Edge decidem calados (app instalado ganha), então
+ * pede a cada abertura; o Firefox pergunta à pessoa, então lá uma vez só.
+ */
+function keepStorage() {
+  const s = navigator.storage;
+  if (!s?.persist || !s.persisted) return;
+  const asks = /Firefox\//.test(navigator.userAgent);
+  try {
+    if (asks && localStorage.getItem(ASKED_PERSIST)) return;
+  } catch { /* sem localStorage */ }
+  s.persisted().then((yes) => {
+    if (yes) return undefined;
+    try {
+      if (asks) localStorage.setItem(ASKED_PERSIST, '1');
+    } catch { /* sem localStorage */ }
+    return s.persist();
+  }).catch(() => {});
+}
+
 /** O papel: claro por padrão (como o app), tinta azul de destaque. */
 function look(p) {
   const dark = p.mode === 'dark' || (p.mode === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
@@ -147,6 +169,7 @@ async function linked({ store, shared, t, lang }) {
     releaseTab();
   };
   if (!shared) {
+    keepStorage();
     try {
       tabs = new BroadcastChannel('freevideo-web');
       tabs.onmessage = (e) => { if (e.data === 'unlinked') unlink(false); };
@@ -358,7 +381,12 @@ async function linked({ store, shared, t, lang }) {
     api.markShared().catch(() => {});
   }
 
-  const refreshMe = () => api.me().then(async (r) => { me = r.me; await store.set('me', me); rerender(); }, () => {});
+  const refreshMe = () => api.me().then(async (r) => {
+    if (!r?.me?.id) return; // resposta sem perfil: fica o de antes (sem ele, a próxima abertura pediria o QR code)
+    me = r.me;
+    await store.set('me', me);
+    rerender();
+  }, () => {});
   refreshMe();
   setInterval(refreshMe, 10 * 60_000);
 
