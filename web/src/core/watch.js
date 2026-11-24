@@ -6,6 +6,8 @@
 import { STATE, YouTubeFrame } from './youtube.js';
 
 const NOTE_EVERY_MS = 15_000;
+// Pediu pra tocar e nada em tanto tempo: o "tocar" aparece em cima do vídeo (em vez de girar pra sempre).
+const STUCK_AFTER_MS = 12_000;
 // Depois de mudar o volume daqui, o que o player ainda diz (o volume de antes) não volta pra régua.
 const VOLUME_QUIET_MS = 1500;
 
@@ -29,12 +31,16 @@ export class Watcher {
     this.lastNote = 0;
     this.newVisit = false;
     this.lastActive = 0; // a última vez que a pessoa abriu, tocou, pausou ou fechou um vídeo aqui (ms)
+    this.wanted = false; // pediu pra tocar este vídeo
+    this.started = false; // este vídeo já mostrou imagem (até lá, a capa e o "carregando" no lugar do preto)
+    this.blocked = false; // o navegador não deixou tocar sozinho: um clique da pessoa toca
     this.frame = new YouTubeFrame(host, {
       controls: true,
       onState: (s) => this.onState(s),
       onTime: (t, d) => this.onTime(t, d),
       onError: (code) => this.onError(code),
       onReady: () => this.applyVolume(),
+      onBlocked: () => this.set({ blocked: true }),
       onVolume: (v, m) => this.heardVolume(v, m),
     });
     // O frame do YouTube já pronto: o primeiro play é um comando, como os outros.
@@ -56,6 +62,20 @@ export class Watcher {
     return this.state === STATE.PLAYING || this.state === STATE.BUFFERING;
   }
 
+  /** Abrindo: pediu pra tocar e o vídeo ainda não mostrou nada (o frame do YouTube é só preto). */
+  get loading() {
+    return !!this.video && this.wanted && !this.started && !this.blocked && this.error == null;
+  }
+
+  /** Se não começar a tocar a tempo, aparece o "tocar" (um clique da pessoa sempre vale). */
+  watchStart() {
+    clearTimeout(this.stuckTimer);
+    const v = this.video;
+    this.stuckTimer = setTimeout(() => {
+      if (this.video === v && !this.started && this.wanted && this.error == null) this.set({ blocked: true });
+    }, STUCK_AFTER_MS);
+  }
+
   /** Abre [video] (de [startMs], quando volta de onde parou). O mesmo vídeo de novo só continua. */
   open(video, startMs = 0) {
     if (this.video?.id === video.id) {
@@ -67,8 +87,9 @@ export class Watcher {
     this.played = 0;
     this.lastTick = null;
     this.lastActive = Date.now();
-    this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: STATE.BUFFERING, error: null });
+    this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: STATE.BUFFERING, error: null, wanted: true, started: false, blocked: false });
     this.frame.load(video.id, Math.floor(startMs / 1000), true);
+    this.watchStart();
   }
 
   /**
@@ -81,8 +102,9 @@ export class Watcher {
     this.played = 0;
     this.lastTick = null;
     this.lastActive = at;
-    this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: play ? STATE.BUFFERING : STATE.CUED, error: null });
+    this.set({ video, time: startMs / 1000, duration: (video.durationMs ?? 0) / 1000, state: play ? STATE.BUFFERING : STATE.CUED, error: null, wanted: play, started: false, blocked: false });
     this.frame.load(video.id, Math.floor(startMs / 1000), play);
+    if (play) this.watchStart();
   }
 
   /** Fecha o vídeo (o mini player saiu): o que foi visto fica anotado. */
@@ -90,14 +112,19 @@ export class Watcher {
     this.note();
     this.lastActive = Date.now();
     this.frame.stop();
-    this.set({ video: null, state: STATE.UNSTARTED, time: 0, duration: 0 });
+    clearTimeout(this.stuckTimer);
+    this.set({ video: null, state: STATE.UNSTARTED, time: 0, duration: 0, wanted: false, blocked: false });
   }
 
   toggle() {
     if (!this.video) return;
     this.lastActive = Date.now();
-    if (this.playing) this.frame.pause();
-    else this.frame.play();
+    if (this.playing && !this.blocked) this.frame.pause();
+    else {
+      this.set({ wanted: true, blocked: false });
+      this.frame.play();
+      if (!this.started) this.watchStart();
+    }
   }
 
   seek(seconds) {
@@ -154,7 +181,12 @@ export class Watcher {
       this.lastTick = null;
       if (s === STATE.PAUSED) this.note();
     }
-    this.set({ state: s });
+    const change = { state: s };
+    if (s === STATE.PLAYING) {
+      Object.assign(change, { started: true, blocked: false, wanted: true });
+      clearTimeout(this.stuckTimer);
+    } else if (s === STATE.PAUSED) change.wanted = false;
+    this.set(change);
     if (s === STATE.ENDED) {
       this.note(true);
       this.onEnded(this.video);

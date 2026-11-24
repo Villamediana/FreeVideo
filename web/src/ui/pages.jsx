@@ -152,6 +152,14 @@ export function Subscriptions() {
   );
 }
 
+/** O tempo assistido: em minutos até uma hora, depois em horas ("1 hora", não "1 horas"). */
+function totalHours(ms, app) {
+  const min = Math.round(ms / 60_000);
+  if (min < 60) return { value: min.toLocaleString(app.lang), label: app.t('minutes') };
+  const h = Math.round(ms / 3_600_000);
+  return { value: h.toLocaleString(app.lang), label: app.t(h === 1 ? 'hour' : 'hours') };
+}
+
 function Shelf({ title, href, children, count }) {
   return (
     <section className="shelf">
@@ -169,24 +177,24 @@ export function Library() {
   const sync = useWatch(app.sync);
   const v = sync.data;
   const history = v.h.slice(0, 8).map(fromV);
+  const hours = totalHours(v.h.reduce((n, w) => n + w.w, 0), app);
   const later = v.sv.filter((x) => x.li === 'later').sort((a, b) => b.at - a.at).map(fromV);
   const liked = v.sv.filter((x) => x.li === 'liked').sort((a, b) => b.at - a.at).map(fromV);
-  const totalMs = v.h.reduce((n, w) => n + w.w, 0);
   return (
     <div className="page">
       <div className="lib-stats">
         <div><b>{v.h.length.toLocaleString(app.lang)}</b><span>{app.t('videos')}</span></div>
-        <div><b>{Math.round(totalMs / 3_600_000).toLocaleString(app.lang)}</b><span>{app.t('hours')}</span></div>
+        <div><b>{hours.value}</b><span>{hours.label}</span></div>
         <div><b>{v.s.length.toLocaleString(app.lang)}</b><span>{app.t('subscriptions')}</span></div>
       </div>
       <Shelf title={app.t('history')} href="#/list/history" count={v.h.length}>
-        {history.length ? <Grid>{history.slice(0, 4).map((x) => <VideoCard key={x.id} v={x} source="history" />)}</Grid> : <p className="faint">—</p>}
+        {history.length ? <Grid row>{history.map((x) => <VideoCard key={x.id} v={x} source="history" />)}</Grid> : <p className="faint">—</p>}
       </Shelf>
       <Shelf title={app.t('watchLater')} href="#/list/later" count={later.length}>
-        {later.length ? <Grid>{later.slice(0, 4).map((x) => <VideoCard key={x.id} v={x} source="later" />)}</Grid> : <p className="faint">—</p>}
+        {later.length ? <Grid row>{later.slice(0, 8).map((x) => <VideoCard key={x.id} v={x} source="later" />)}</Grid> : <p className="faint">—</p>}
       </Shelf>
       <Shelf title={app.t('likedVideos')} href="#/list/liked" count={liked.length}>
-        {liked.length ? <Grid>{liked.slice(0, 4).map((x) => <VideoCard key={x.id} v={x} source="liked" />)}</Grid> : <p className="faint">—</p>}
+        {liked.length ? <Grid row>{liked.slice(0, 8).map((x) => <VideoCard key={x.id} v={x} source="liked" />)}</Grid> : <p className="faint">—</p>}
       </Shelf>
       <Shelf title={app.t('subscriptions')} href="#/subs" count={v.s.length}>
         <div className="sub-strip">

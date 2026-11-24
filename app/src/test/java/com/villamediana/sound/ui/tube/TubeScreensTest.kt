@@ -49,6 +49,11 @@ class TubeScreensTest {
     }
 
     @Test
+    fun theRowSaysOnlyTheCodesFirstGroup() {
+        org.junit.Assert.assertEquals("7K2Q-••••-••••-••••", maskedCode("7K2Q-M9XD-4TFA-H3RB"))
+    }
+
+    @Test
     fun everyPageOpens() {
         val tube = SoundApplication.graph.tube
         val video = VideoItem("dQw4w9WgXcQ", "Um vídeo do histórico", "Canal de teste", "https://www.youtube.com/channel/UC" + "a".repeat(22), null, null, 212_000)
@@ -84,6 +89,9 @@ class TubeScreensTest {
         // The language: the phone's, Português, Español, English.
         rule.onAllNodesWithText(str(R.string.tube_set_language)).onFirst().assertExists()
         rule.onAllNodesWithText("Español").onFirst().assertExists()
+        // Conta: another phone's code is here (the recovery code too, once there is a profile).
+        rule.onAllNodesWithText(str(R.string.tube_set_section_account)).onFirst().assertExists()
+        rule.onAllNodesWithText(str(R.string.tube_profile_use_code)).onFirst().assertExists()
         rule.onAllNodesWithContentDescription(str(R.string.tube_back)).onFirst().performClick()
         rule.waitForIdle()
 

@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright-core';
 import { createRelay } from '../../relay/src/server.js';
 import { createWeb } from '../server/app.js';
+import { PassCheck } from '../server/pass.js';
 import * as lock from '../src/core/crypto.js';
 import { normalize } from '../src/core/vault.js';
 
@@ -21,9 +22,14 @@ const CHROME = process.env.CHROME ?? `${process.env.HOME}/.cache/ms-playwright/c
 
 const dataDir = mkdtempSync(path.join(tmpdir(), 'freevideo-e2e-'));
 const relay = createRelay({ dataDir, log: { error() {} } });
-const web = createWeb({ publicDir: path.join(here, '..', 'public') });
 const listen = (server) => new Promise((r) => server.listen(0, '127.0.0.1', () => r(server.address().port)));
 const relayPort = await listen(relay.server);
+// A ponte confere o passe com a chave deste relay.
+// Os dados de teste vêm da ponte com um passe só do teste; a página usa o passe de verdade do relay.
+const SEED = 'e2e-seed';
+const realPasses = new PassCheck({ keyUrl: `http://127.0.0.1:${relayPort}/v1/pass-key` });
+const web = createWeb({ publicDir: path.join(here, '..', 'public'), passes: { check: async (h) => (h === SEED ? 'S'.repeat(22) : realPasses.check(h)) } });
+const seedHeaders = { 'x-freevideo-pass': SEED };
 const webPort = await listen(web.server);
 // O "túnel" (o mesmo caminho que está no novelo.yml): o que é do relay vai pra ele, o resto pra web.
 const RELAY = /^\/(v1|avatars|\.well-known)(\/|$)/;
@@ -58,8 +64,8 @@ await api('PATCH', '/v1/me', { token: phone.token, body: { name: 'Miguel' } });
 const raw = globalThis.crypto.getRandomValues(new Uint8Array(32));
 const phoneKey = await globalThis.crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 const now = Date.now();
-const found = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('receita pão caseiro')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
-const tech = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('review celular')}&type=videos`)).json()).items.filter((x) => x.kind === 'video');
+const found = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('receita pão caseiro')}&type=videos`, { headers: seedHeaders })).json()).items.filter((x) => x.kind === 'video');
+const tech = (await (await fetch(`${base}/api/search?q=${encodeURIComponent('review celular')}&type=videos`, { headers: seedHeaders })).json()).items.filter((x) => x.kind === 'video');
 const w = (x, i, frac) => ({ i: x.id, t: x.title, cn: x.channelName, cu: x.channelUrl, th: x.thumbnailUrl, d: 600_000, p: Math.round(600_000 * frac), w: Math.round(600_000 * Math.max(frac, 0.5)), n: 1, f: now - i * 3_600_000, l: now - i * 3_600_000 });
 const content = {
   h: [...found.slice(0, 5).map((x, i) => w(x, i, i === 0 ? 0.4 : 0.95)), ...tech.slice(0, 4).map((x, i) => w(x, i + 5, 0.9))],
@@ -96,7 +102,7 @@ check(await page.locator('.vcard').count() >= 8, `o feed tem vídeos (${await pa
 check(await page.locator('.shelf', { hasText: 'Continuar assistindo' }).count() === 1, 'continuar assistindo (do histórico do celular)');
 
 // A página do vídeo
-await page.locator('.vgrid .vcard').nth(3).click();
+await page.locator('.vgrid:not(.one-row) .vcard').nth(3).click();
 await page.waitForSelector('.watch-title', { timeout: 20_000 });
 await page.waitForTimeout(6000);
 await shot('03-video');

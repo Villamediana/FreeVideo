@@ -161,8 +161,49 @@ function Dock({ route }) {
         </div>
       )}
       <VolumeHud host={host} />
+      <DockCover host={host} />
     </>
   );
+}
+
+const THUMB = /^https:\/\/[^\s"'()\\]+$/;
+
+/**
+ * Enquanto o vídeo abre, o frame do YouTube é só preto: em cima dele, a capa do vídeo escurecida e o
+ * "carregando"; se o navegador não deixou tocar sozinho (ou demorou demais), um botão de tocar. Feito
+ * à mão dentro do lugar do player (o React não mexe ali: o frame do YouTube não pode sair do lugar).
+ */
+function DockCover({ host }) {
+  const app = useApp();
+  const w = useWatch(app.watcher);
+  useEffect(() => {
+    if (!host || host.querySelector(':scope > .dock-wait')) return;
+    const el = document.createElement('div');
+    el.className = 'dock-wait';
+    const spin = document.createElement('span');
+    spin.className = 'spinner';
+    spin.setAttribute('aria-hidden', 'true');
+    const play = document.createElement('button');
+    play.type = 'button';
+    play.className = 'dock-play';
+    play.addEventListener('click', () => app.watcher.toggle());
+    el.append(spin, play);
+    host.append(el);
+  }, [host]);
+  const blocked = !!w.video && w.blocked && w.error == null;
+  const on = w.loading || blocked;
+  const thumb = w.video ? (THUMB.test(w.video.thumbnailUrl ?? '') ? w.video.thumbnailUrl : `https://i.ytimg.com/vi/${encodeURIComponent(w.video.id)}/hqdefault.jpg`) : null;
+  useEffect(() => {
+    const el = host?.querySelector(':scope > .dock-wait');
+    if (!el) return;
+    el.classList.toggle('on', on);
+    el.classList.toggle('blocked', blocked);
+    el.setAttribute('role', on ? 'status' : 'presentation');
+    el.setAttribute('aria-label', on ? app.t(blocked ? 'play' : 'loading') : '');
+    el.querySelector('.dock-play')?.setAttribute('aria-label', app.t('play'));
+    el.style.backgroundImage = on && thumb ? `url("${thumb}")` : 'none';
+  }, [host, on, blocked, thumb]);
+  return null;
 }
 
 /** O volume mudado pelo teclado (↑/↓, M): aparece um instante no meio do vídeo. */

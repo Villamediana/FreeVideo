@@ -888,3 +888,15 @@ original antes de sumir. Causa: no fim da animação (`WatchSheet.shiftAway`) a 
 Agora, fora da tela, a folha solta o vídeo primeiro (`route = null`) e só então o player fecha e tudo volta ao
 repouso pro próximo vídeo. Teste: `BarSwipeAwayTest` (depois do empurrão, o vídeo nunca está na tela no lugar
 de antes).
+
+## Código de recuperação em Ajustes, a ponte com passe e o vídeo abrindo na web (1.6.0)
+
+- **Ajustes › Conta** (`ui/tube/TubeRecovery.kt`): "Código de recuperação" (a linha mostra só o primeiro
+  grupo; abre o código com "Copiar", marcado sensível, e "Gerar outro", que pergunta antes) e "Usar outro
+  código". O perfil ficou com foto, nome, @ e apagar.
+- **Backup do Android**: só com a cópia cifrada pela trava de tela (`disableIfNoEncryptionCapabilities`).
+- **Atualizador**: "Tentar de novo" logo depois de uma falha não é mais ignorado.
+- **Web**: a ponte só atende computador ligado (passe do relay 2.1.0, `relay/src/pass.js` +
+  `web/server/pass.js`), limites por computador (as novidades das inscrições contam um por canal); ao
+  abrir um vídeo, a capa e o "carregando" no lugar do preto. Detalhes em `web/README.md`.
+  **Deploy: relay antes da web.**

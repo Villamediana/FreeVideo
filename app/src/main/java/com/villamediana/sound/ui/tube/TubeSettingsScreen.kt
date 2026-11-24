@@ -166,6 +166,10 @@ fun TubeSettingsScreen() {
                 }
             }
 
+            item(key = "account") {
+                Group(stringResource(R.string.tube_set_section_account)) { AccountRows() }
+            }
+
             item(key = "look") {
                 Group(stringResource(R.string.tube_set_section_look)) {
                     Column(Modifier.padding(16.dp)) {

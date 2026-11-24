@@ -85,6 +85,6 @@ export function PlaylistRow({ p }) {
   );
 }
 
-export function Grid({ children }) {
-  return <div className="vgrid">{children}</div>;
+export function Grid({ children, row = false }) {
+  return <div className={`vgrid${row ? ' one-row' : ''}`}>{children}</div>;
 }

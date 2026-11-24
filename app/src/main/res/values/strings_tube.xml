@@ -278,4 +278,8 @@
     <string name="tube_computer_no_scanner">Não deu pra abrir a câmera. Aponte a câmera do celular pro código.</string>
     <string name="tube_computer_expired">O código expirou. Mostre outro no computador.</string>
     <string name="tube_computer_too_many">Computadores demais. Desligue um.</string>
+    <string name="tube_set_section_account">Conta</string>
+    <string name="tube_code_new_title">Gerar outro código?</string>
+    <string name="tube_code_new_body">O código de agora deixa de funcionar. Guarde o novo.</string>
+    <string name="tube_code_too_many">Muitas tentativas. Tente de novo daqui a pouco.</string>
 </resources>
